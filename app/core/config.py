@@ -96,6 +96,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite+aiosqlite:///./data/app.db"
     database_echo: bool = False
 
+    #: Arquivo dos checkpoints do grafo. Separado do banco da aplicacao porque tem outro
+    #: dono (a biblioteca), outro ciclo de vida e pode ser descartado sem perder historico.
+    checkpoint_path: str = "./data/checkpoints.db"
+
     @model_validator(mode="after")
     def overlap_must_be_smaller_than_chunk(self) -> "Settings":
         """Sobreposicao maior ou igual ao pedaco geraria divisao infinita."""

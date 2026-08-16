@@ -20,6 +20,11 @@ dependencies = [
     "langchain-text-splitters>=0.3,<1",
     "pypdf>=5.1,<7",
     "python-multipart>=0.0.18,<1",
+    "langgraph>=1.2,<2",
+    # Piso em 3.1: as versoes 2.x nao acompanham a API do langgraph-checkpoint 4.x
+    # (serializador sem `dumps`) nem o aiosqlite 0.22 (sem `is_alive`). Instalam
+    # normalmente e quebram em tempo de execucao.
+    "langgraph-checkpoint-sqlite>=3.1,<4",
 ]
 
 [project.optional-dependencies]

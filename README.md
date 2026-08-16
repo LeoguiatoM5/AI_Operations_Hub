@@ -4,7 +4,7 @@ Plataforma de automacao empresarial que recebe uma solicitacao em linguagem natu
 interpreta a intencao, consulta a base de conhecimento corporativa, decide quais acoes
 executar e dispara automacoes -- registrando cada decisao tomada no caminho.
 
-> **Status:** em construcao. Versao atual: `V2 completo - RAG com fontes rastreaveis`.
+> **Status:** em construcao. Versao atual: `V3 - Workflow multiagente com LangGraph`.
 
 ---
 
@@ -27,13 +27,17 @@ qualquer acao de escrita em sistemas externos.
 
 | Versao | Escopo | Status |
 |---|---|---|
-| **V1** | FastAPI + camada multi-LLM + 1 agente + persistencia + observabilidade | em andamento |
-| V2 | RAG com ChromaDB, upload e ingestao de documentos, respostas com fontes | planejado |
-| V3 | LangGraph com multiplos agentes e roteamento por intencao | planejado |
-| V4 | Integracoes (n8n, Google Sheets, Notion, Slack) e human-in-the-loop | planejado |
+| **V1** | FastAPI + camada multi-LLM + agente de triagem + persistencia + observabilidade | concluido |
+| **V2** | RAG com ChromaDB, ingestao de documentos, respostas com fontes citadas | concluido |
+| **V3** | LangGraph: quatro agentes, roteamento por plano, checkpointer persistente | concluido |
+| V4 | Integracoes (n8n, Google Sheets, Notion, Slack) e human-in-the-loop | proximo |
 | V5 | AI Quality Gateway e AI Evals | planejado |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD e observabilidade completa | planejado |
+
+Detalhamento de cada versao, invariantes do projeto e pendencias conhecidas em
+[`docs/roadmap.md`](docs/roadmap.md). As decisoes arquiteturais, com o contexto que as
+motivou, em [`docs/engineering-decisions.md`](docs/engineering-decisions.md).
 
 ---
 
@@ -111,6 +115,7 @@ pytest                # testes
 | `GET` | `/documents/{id}` | Detalha um documento |
 | `DELETE` | `/documents/{id}` | Remove o documento e seus trechos do indice |
 | `POST` | `/rag/query` | Responde uma pergunta usando a base, citando as fontes |
+| `POST` | `/agents/run` | Executa o workflow multiagente e devolve o relatorio consolidado |
 
 Novos endpoints entram a cada versao do roadmap.
 
@@ -216,6 +221,72 @@ tempo e cota.
 O retry interno do SDK da OpenAI e desligado (`max_retries=0`) de proposito: uma
 repeticao silenciosa dentro da biblioteca corromperia a medicao de latencia e a
 contagem de tentativas.
+
+---
+
+## Workflow multiagente
+
+```
+START -> orchestrator -+-> research --+
+                       |              |
+                       +-> analysis --+--> (roteador) -> reporter -> END
+                       |
+                       +-> END   (plano nao pode ser produzido)
+```
+
+Quatro agentes, cada um com prompt versionado em arquivo e saida validada por schema:
+
+| Agente | Responsabilidade | Guarda de coerencia |
+|---|---|---|
+| `orchestrator` | Classifica a solicitacao e monta a fila de agentes | `requires_approval` exige `automation` no plano |
+| `research` | Consulta a base de conhecimento | Citacao fora do intervalo recuperado e rejeitada |
+| `analysis` | Encontra padroes nos dados | Todo achado exige evidencia literal; confianca alta exige achado |
+| `reporter` | Consolida tudo, inclusive o que falhou | Relatorio vazio precisa declarar limitacoes |
+
+### O caminho e decidido pelo plano, nao pelo codigo
+
+Execucao real, com `gpt-4o-mini`:
+
+```
+plano do orquestrador : ['analysis', 'research', 'reporter']
+caminho percorrido    : orchestrator -> analysis -> research -> reporter
+```
+
+O roteamento e uma `conditional_edge` que consulta uma **funcao pura** do estado
+(`route_next`). Isso permite testar todos os caminhos do grafo -- inclusive falha fatal,
+agente desconhecido e fila vazia -- em milissegundos, sem executar agente nenhum.
+
+### Falha de um agente nao derruba a execucao
+
+```json
+{"status": "completed",
+ "agents_executed": ["orchestrator", "reporter"],
+ "analysis": null,
+ "errors": [{"agent": "analysis", "code": "llm_timeout", "message": "..."}],
+ "report": {"limitations": ["A analise falhou por timeout do provedor."]}}
+```
+
+Um relatorio que declara o que falhou vale mais que `502` com nada aproveitado -- o custo
+dos agentes anteriores ja foi pago. A unica falha fatal e a do orquestrador: sem plano,
+nao ha o que executar.
+
+### Estado persistido a cada no
+
+```
+thread_id  : d7d21c68d94f4bd8a95f9818fa450d83
+checkpoints: 6
+canais     : plan, pending_agents, analysis, research, report, completed, errors,
+             branch:to:orchestrator, branch:to:analysis, branch:to:research, ...
+```
+
+O checkpointer grava o estado apos cada superstep. E isso que vai permitir, no V4,
+pausar em `WAITING_APPROVAL` e retomar do ponto exato -- sem reexecutar os agentes
+anteriores nem pagar os tokens de novo.
+
+### Custo de uma execucao completa
+
+Quatro agentes, cinco chamados analisados, base de conhecimento consultada:
+**4.413 tokens, US$ 0,000908, 8,6 segundos.**
 
 ---
 
@@ -394,7 +465,7 @@ pareceria tao fundamentada quanto uma real.
 ### O corte de relevancia pertence ao modelo
 
 ```python
-provider.min_relevant_score   # fake: 0.05   |   text-embedding-3-small: 0.35
+provider.min_relevant_score  # fake: 0.05   |   text-embedding-3-small: 0.35
 ```
 
 A escala de similaridade depende do modelo de embedding -- um valor unico na configuracao

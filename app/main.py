@@ -10,12 +10,13 @@ from contextlib import asynccontextmanager
 from time import monotonic
 
 from fastapi import FastAPI
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.api.routes import chat, documents, executions, health, rag
+from app.api.routes import agents, chat, documents, executions, health, rag
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import create_engine, create_schema, create_session_factory
@@ -23,6 +24,7 @@ from app.llm.base import LLMProvider
 from app.llm.factory import build_llm_provider
 from app.rag.base import EmbeddingProvider, VectorStore
 from app.rag.factory import build_embedding_provider, build_vector_store
+from app.workflows.checkpointer import create_checkpointer
 
 logger = get_logger(__name__)
 
@@ -34,6 +36,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     engine: AsyncEngine = app.state.engine
 
     await create_schema(engine)
+
+    # Criado aqui, e nao em create_app, porque exige I/O assincrono. Testes e scripts
+    # injetam o proprio (normalmente um MemorySaver) e nunca passam por este caminho.
+    checkpoint_connection = None
+    if app.state.checkpointer is None:
+        app.state.checkpointer, checkpoint_connection = await create_checkpointer(settings)
+
     logger.info(
         "application_started",
         app=settings.app_name,
@@ -46,6 +55,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.llm_provider.aclose()
     await app.state.embedding_provider.aclose()
     await app.state.vector_store.aclose()
+    if checkpoint_connection is not None:
+        # O AsyncSqliteSaver nao fecha a conexao, e uma conexao SQLite pendurada mantem
+        # o arquivo bloqueado no Windows.
+        await checkpoint_connection.close()
     await engine.dispose()
     logger.info("application_stopped")
 
@@ -57,6 +70,7 @@ def create_app(
     llm_provider: LLMProvider | None = None,
     embedding_provider: EmbeddingProvider | None = None,
     vector_store: VectorStore | None = None,
+    checkpointer: BaseCheckpointSaver[str] | None = None,
 ) -> FastAPI:
     """Monta a aplicacao FastAPI.
 
@@ -85,6 +99,8 @@ def create_app(
     app.state.llm_provider = llm_provider or build_llm_provider(settings)
     app.state.embedding_provider = embedding_provider or build_embedding_provider(settings)
     app.state.vector_store = vector_store or build_vector_store(settings)
+    #: `None` significa "o lifespan cria". Testes injetam um MemorySaver.
+    app.state.checkpointer = checkpointer
     app.state.started_at = monotonic()
 
     app.add_middleware(CorrelationIdMiddleware)
@@ -95,6 +111,7 @@ def create_app(
     app.include_router(executions.router)
     app.include_router(documents.router)
     app.include_router(rag.router)
+    app.include_router(agents.router)
 
     return app
 

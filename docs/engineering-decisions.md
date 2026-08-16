@@ -347,6 +347,97 @@ quando alguem enviar o primeiro documento.
 
 ---
 
+## ED-043 — LangGraph, e os tres recursos que o justificam
+
+**Decisao.** O workflow multiagente roda sobre `StateGraph`, nao sobre um laco com
+condicionais.
+
+**Motivo.** A dependencia so se paga se os recursos exclusivos forem usados. Sao tres, e
+os tres estao em uso:
+
+1. **Reducers no estado.** `Annotated[list, operator.add]` declara a acumulacao no tipo.
+   Com o reducer padrao (substituicao), o segundo no apagaria o registro do primeiro.
+2. **`conditional_edges`.** O caminho e decidido por uma funcao pura do estado, nao por
+   `if` dentro de um no (ED-044).
+3. **Checkpointer.** O estado sobrevive a execucao e permite retomada (ED-047).
+
+Se fosse executor linear, um `for` sobre uma lista faria o mesmo com menos dependencia --
+e a critica seria justa.
+
+---
+
+## ED-044 — O caminho e dado, nao codigo
+
+**Decisao.** `route_next(state) -> str` e funcao pura: sem LLM, sem banco, sem efeito
+colateral. O plano do orquestrador preenche uma fila; o roteador consome dela.
+
+**Beneficio medido.** Todos os caminhos do grafo -- inclusive falha fatal, agente
+desconhecido e fila vazia -- sao testados em milissegundos, sem provider nenhum. Com o
+roteamento dentro dos nos, cada caminho exigiria executar agentes.
+
+**Verificado em execucao real:** o plano devolveu `['analysis', 'research', 'reporter']`
+e o grafo percorreu `orchestrator -> analysis -> research -> reporter`. A ordem veio do
+modelo, nao do codigo.
+
+---
+
+## ED-045 — Falha de agente degrada, nao aborta
+
+**Decisao.** Um agente que falha registra o erro em `errors` e o grafo continua. Somente
+o orquestrador e fatal -- sem plano nao ha o que executar.
+
+**Motivo.** Um relatorio que declara "a analise falhou por timeout" vale mais que um
+`502` com nada aproveitado: o custo dos agentes que ja rodaram foi pago de qualquer
+forma, e a informacao parcial ainda serve para decidir.
+
+**Consequencia no contrato.** `/agents/run` termina com `201` e `status: completed`
+mesmo com falhas parciais -- diferente de `/chat` (ED-024), onde a falha significa que
+nada foi produzido. A diferenca e deliberada e esta documentada na rota.
+
+**Guarda contra relatorio vazio e confiante.** O `Report` recusa validacao se nao houver
+pontos-chave, recomendacoes **nem** limitacoes declaradas. Se tudo falhou, quem le
+precisa saber o que falhou.
+
+---
+
+## ED-046 — Grafo compilado por requisicao
+
+**Decisao.** `build_graph` roda a cada execucao, com nos que carregam a sessao de banco
+e a execucao em curso.
+
+**Motivo.** Compilar e barato -- monta a estrutura, nao executa nada. O custo se paga em
+seguranca: nenhum estado de requisicao vive em objeto compartilhado entre threads, que e
+a origem classica de vazamento de dados entre usuarios em servidores async.
+
+---
+
+## ED-047 — Substituto em teste que nunca encontra o real esconde defeito
+
+**Contexto.** Toda a suite injeta `MemorySaver`, o que e correto: testes nao devem tocar
+disco. A consequencia era que o caminho de producao -- `AsyncSqliteSaver` criado no
+lifespan -- nunca era exercitado.
+
+**O que estava quebrado.** Duas incompatibilidades encadeadas, ambas silenciosas na
+instalacao:
+
+1. `langgraph-checkpoint-sqlite` 2.x chama `is_alive()` no `aiosqlite`, metodo removido
+   na versao 0.22 junto com a heranca de `threading.Thread`.
+2. A mesma 2.x chama `dumps()` no serializador, metodo que o `langgraph-checkpoint` 4.x
+   nao expoe mais.
+
+**A aplicacao nao subia.** Nenhum teste falhava.
+
+**Causa raiz do meu lado.** O teto `langgraph-checkpoint-sqlite>=2,<3` foi escrito
+seguindo o ED-013, mas com o valor errado: a versao compativel com o ecossistema atual e
+a 3.1. Teto de major protege de quebra futura; nao protege de escolher o major errado
+hoje.
+
+**Decisao.** Piso em `>=3.1`, e um arquivo de teste dedicado que constroi o checkpointer
+**real**, roda um grafo por ele e recupera o estado com uma segunda instancia -- provando
+persistencia entre processos, que e a base do human-in-the-loop do V4.
+
+---
+
 ## ED-014 — Segredos como `SecretStr`
 
 **Decisao.** `openai_api_key: SecretStr | None`.

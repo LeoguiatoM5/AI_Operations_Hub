@@ -20,7 +20,7 @@ logger = get_logger(__name__)
 SQLITE_FILE_PREFIX = "sqlite+aiosqlite:///"
 
 
-def _ensure_sqlite_directory(database_url: str) -> None:
+def ensure_sqlite_directory(database_url: str) -> None:
     """Cria o diretorio do arquivo SQLite, se necessario.
 
     Sem isso, a primeira execucao em uma maquina limpa falha com "unable to open
@@ -40,7 +40,7 @@ def create_engine(settings: Settings) -> AsyncEngine:
     Assincrono porque a API e assincrona: um driver bloqueante travaria o event loop a
     cada consulta, anulando a concorrencia conquistada na camada de LLM.
     """
-    _ensure_sqlite_directory(settings.database_url)
+    ensure_sqlite_directory(settings.database_url)
     return create_async_engine(
         settings.database_url,
         echo=settings.database_echo,

@@ -20,6 +20,7 @@ from typing import Any
 import pytest
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+from langgraph.checkpoint.memory import MemorySaver
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -188,6 +189,9 @@ def app(
         llm_provider=provider,
         embedding_provider=embedder,
         vector_store=vector_store,
+        # Testes nao executam o lifespan, onde o checkpointer persistente e criado.
+        # O MemorySaver da o mesmo comportamento sem tocar em disco.
+        checkpointer=MemorySaver(),
     )
 
 
@@ -210,7 +214,17 @@ async def make_client(
     created: list[AsyncClient] = []
 
     def build(llm_provider: LLMProvider) -> AsyncClient:
-        application = create_app(settings, engine=engine, llm_provider=llm_provider)
+        # Embedder e indice proprios por cliente. Sem injeta-los, `create_app` os
+        # construiria a partir da configuracao -- e os testes passariam a escrever no
+        # ./data/chroma real do projeto.
+        application = create_app(
+            settings,
+            engine=engine,
+            llm_provider=llm_provider,
+            embedding_provider=FakeEmbeddingProvider(),
+            vector_store=InMemoryVectorStore(),
+            checkpointer=MemorySaver(),
+        )
         client = AsyncClient(transport=ASGITransport(app=application), base_url="http://testserver")
         created.append(client)
         return client

@@ -10,12 +10,14 @@ from collections.abc import AsyncIterator
 from typing import Annotated, cast
 
 from fastapi import Depends
+from langgraph.checkpoint.base import BaseCheckpointSaver
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.requests import Request
 
 from app.agents.research import ResearchAgent
 from app.agents.triage import TriageAgent
 from app.core.config import Settings
+from app.core.exceptions import ConfigurationError
 from app.db.session import session_scope
 from app.llm.base import LLMProvider
 from app.rag.base import EmbeddingProvider, VectorStore
@@ -25,6 +27,7 @@ from app.repositories.execution_repository import ExecutionRepository
 from app.services.document_service import DocumentService
 from app.services.execution_service import ExecutionService
 from app.services.rag_service import RagService
+from app.services.workflow_service import WorkflowService
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -137,6 +140,35 @@ def get_rag_service(
     )
 
 
+def get_checkpointer(request: Request) -> BaseCheckpointSaver[str]:
+    """Checkpointer do grafo, criado uma vez no startup.
+
+    Ausente significa que a aplicacao subiu sem passar pelo lifespan e sem receber um
+    checkpointer injetado. Melhor falhar aqui, com a causa dita, do que rodar o grafo
+    sem persistencia de estado e descobrir isso no V4.
+    """
+    checkpointer = getattr(request.app.state, "checkpointer", None)
+    if checkpointer is None:
+        raise ConfigurationError(
+            "Checkpointer do workflow nao inicializado. Ele e criado no lifespan da "
+            "aplicacao; em testes, injete um em create_app()."
+        )
+    return cast(BaseCheckpointSaver[str], checkpointer)
+
+
+CheckpointerDep = Annotated[BaseCheckpointSaver[str], Depends(get_checkpointer)]
+
+
+def get_workflow_service(
+    repository: ExecutionRepositoryDep,
+    provider: LLMProviderDep,
+    retriever: RetrieverDep,
+    checkpointer: CheckpointerDep,
+) -> WorkflowService:
+    return WorkflowService(repository, provider, retriever, checkpointer)
+
+
 ExecutionServiceDep = Annotated[ExecutionService, Depends(get_execution_service)]
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
 RagServiceDep = Annotated[RagService, Depends(get_rag_service)]
+WorkflowServiceDep = Annotated[WorkflowService, Depends(get_workflow_service)]
