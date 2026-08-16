@@ -4,7 +4,7 @@ Plataforma de automacao empresarial que recebe uma solicitacao em linguagem natu
 interpreta a intencao, consulta a base de conhecimento corporativa, decide quais acoes
 executar e dispara automacoes -- registrando cada decisao tomada no caminho.
 
-> **Status:** em construcao. Versao atual: `V1.4 - MVP funcional`.
+> **Status:** em construcao. Versao atual: `V2.1 - Motor de busca semantica`.
 
 ---
 
@@ -211,6 +211,59 @@ tempo e cota.
 O retry interno do SDK da OpenAI e desligado (`max_retries=0`) de proposito: uma
 repeticao silenciosa dentro da biblioteca corromperia a medicao de latencia e a
 contagem de tentativas.
+
+---
+
+## Busca semantica
+
+Duas abstracoes independentes, pelo mesmo motivo de sempre: sao eixos de evolucao
+diferentes. O modelo de embedding muda por qualidade e custo; o banco vetorial muda por
+escala e operacao.
+
+```
+Documento -> normalizacao -> chunking -> embedding -> VectorStore
+                                                          |
+Pergunta  --------------------------> embedding -----> busca -> trechos + score
+```
+
+| Componente | Implementacoes | Troca por |
+|---|---|---|
+| `EmbeddingProvider` | `fake` (hashing lexical), `openai` | `EMBEDDING_PROVIDER` |
+| `VectorStore` | `memory` (referencia), `chroma` (persistente) | `VECTOR_STORE` |
+
+### O provedor falso nao e um placeholder
+
+`FakeEmbeddingProvider` e um vetorizador por hashing: cada palavra de conteudo ocupa
+sempre a mesma posicao do vetor. Isso produz **similaridade lexical real** -- os testes
+verificam comportamento de recuperacao, e nao apenas encanamento, sem rede e sem custo.
+
+O limite dele e conhecido e medido. Mesma base, mesmas perguntas:
+
+| Pergunta | `fake` | `openai` |
+|---|---|---|
+| "prazo para solicitar **reembolso** de despesas" | acerta (0.250) | acerta (0.773) |
+| "quanto tempo para **pedir de volta um valor que gastei**" | **erra** | acerta (0.587) |
+| "trocar minha **credencial de acesso**" | acerta por 0.002 (ruido) | acerta (0.641) |
+
+Na segunda pergunta nao ha uma palavra em comum com o documento correto. E exatamente
+para isso que servem embeddings de verdade -- e ter os dois lado a lado torna a diferenca
+demonstravel, em vez de afirmada.
+
+### Detalhes que costumam quebrar RAG
+
+| Armadilha | Como e tratada |
+|---|---|
+| `hash()` de string e aleatorizado por processo | Hash estavel via `blake2b`: indice de hoje continua valido amanha |
+| Banco vetorial devolve **distancia**, nao similaridade | Convertido na fronteira de cada implementacao; `score` e sempre "maior e melhor" |
+| Chroma baixa um modelo ONNX de dezenas de MB | Fornecemos os vetores; ele e so o indice |
+| Cliente do Chroma e sincrono | Envolvido em `asyncio.to_thread`, para nao travar o event loop |
+| `chunk_overlap >= chunk_size` gera divisao infinita | Rejeitado na validacao da configuracao, no startup |
+
+### Teste de contrato
+
+A mesma bateria de 13 testes roda contra `InMemoryVectorStore` e `ChromaVectorStore`.
+E o que sustenta a afirmacao de que trocar de banco vetorial e mudar uma variavel: se o
+Chroma divergir do comportamento de referencia, a suite quebra.
 
 ---
 

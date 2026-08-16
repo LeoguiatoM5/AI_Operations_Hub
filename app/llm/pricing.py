@@ -34,8 +34,12 @@ PRICING: dict[str, ModelPricing] = {
     "gpt-4o": ModelPricing(input_per_million=2.50, output_per_million=10.00),
     "gpt-4.1-mini": ModelPricing(input_per_million=0.40, output_per_million=1.60),
     "gpt-4.1": ModelPricing(input_per_million=2.00, output_per_million=8.00),
-    # provider de teste: nao custa nada
+    # Embeddings: so ha custo de entrada. O vetor devolvido nao e cobrado como saida.
+    "text-embedding-3-small": ModelPricing(input_per_million=0.02, output_per_million=0.0),
+    "text-embedding-3-large": ModelPricing(input_per_million=0.13, output_per_million=0.0),
+    # providers de teste: nao custam nada
     "fake-model-1": ModelPricing(input_per_million=0.0, output_per_million=0.0),
+    "fake-embedding-1": ModelPricing(input_per_million=0.0, output_per_million=0.0),
 }
 
 

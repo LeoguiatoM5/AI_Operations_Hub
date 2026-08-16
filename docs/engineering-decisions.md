@@ -184,6 +184,18 @@ um repositorio de portfolio, isso significa um recrutador clonando e encontrando
 
 ---
 
+## ED-014 — Segredos como `SecretStr`
+
+**Decisao.** `openai_api_key: SecretStr | None`.
+
+**Motivo.** Vazamento de credencial raramente e deliberado. Acontece em um log de debug
+que despeja a configuracao inteira, em um traceback enviado a uma ferramenta de
+monitoramento, ou em uma mensagem colada num ticket. `SecretStr` fecha os tres caminhos:
+`repr()`, `str()` e `model_dump()` mostram `**********`. Ha testes garantindo que
+continue assim.
+
+---
+
 ## ED-015 — Duas tabelas: `Execution` e `AgentExecution`
 
 **Decisao.** O pedido do usuario e uma linha; cada passo de agente dentro dele e outra.
@@ -399,10 +411,67 @@ codigo cujo comportamento so e verificavel estatisticamente.
 O caso fica registrado como entrada do `evaluation_dataset.json` (V5). Depois de existir
 a medicao, o ajuste vira experimento com antes e depois -- nao opiniao.
 
-**Decisao.** `openai_api_key: SecretStr | None`.
+---
 
-**Motivo.** Vazamento de credencial raramente e deliberado. Acontece em um log de debug
-que despeja a configuracao inteira, em um traceback enviado a uma ferramenta de
-monitoramento, ou em uma mensagem colada num ticket. `SecretStr` fecha os tres caminhos:
-`repr()`, `str()` e `model_dump()` mostram `**********`. Ha testes garantindo que
-continue assim.
+## ED-030 — Embedding e banco vetorial sao abstracoes separadas
+
+**Decisao.** `EmbeddingProvider` e `VectorStore` sao Protocols independentes.
+
+**Motivo.** Bancos vetoriais oferecem embedding embutido -- e conveniente e amarra as
+duas decisoes numa so. Separando, troca-se o modelo de embedding sem trocar o banco, e o
+banco sem trocar o modelo. Sao eixos de evolucao diferentes: o modelo muda por qualidade
+e custo; o banco muda por escala e operacao.
+
+**Consequencia pratica.** O Chroma e configurado SEM funcao de embedding propria. Por
+padrao ele baixaria um modelo ONNX de dezenas de megabytes na primeira execucao; passando
+os vetores prontos, ele vira apenas o indice.
+
+---
+
+## ED-031 — Embeddings falsos com similaridade lexical real
+
+**Decisao.** `FakeEmbeddingProvider` nao gera vetores aleatorios: e um vetorizador por
+hashing, em que cada palavra de conteudo ocupa sempre a mesma posicao.
+
+**Motivo.** Vetores aleatorios testariam encanamento -- "chamou o banco, recebeu uma
+lista". Com similaridade lexical de verdade, buscar "politica de reembolso" recupera o
+trecho sobre reembolso, e os testes passam a verificar **comportamento de recuperacao**
+sem rede e sem custo.
+
+**Detalhes que importam:**
+
+- Hash via `blake2b`, nunca `hash()`. O hash de string em Python e aleatorizado por
+  processo: usa-lo tornaria um indice gravado hoje incompativel com a busca de amanha.
+- Presenca binaria de palavras, nao contagem. Descoberto por teste que falhou: com
+  contagem bruta, um documento com tres ocorrencias de "de" ficou mais proximo da
+  pergunta que o documento que tratava do assunto perguntado.
+- Palavras com menos de tres letras sao descartadas -- em portugues sao majoritariamente
+  conectivos. E a versao mais simples do que o IDF faz num vetorizador real.
+
+**Limite reconhecido.** Nao captura sinonimia. Medido: para "quanto tempo tenho para
+pedir de volta um valor que gastei?", o provedor falso erra o documento e o
+`text-embedding-3-small` acerta com folga (0.587 contra 0.381 do segundo colocado).
+
+---
+
+## ED-032 — Distancia vira similaridade na fronteira
+
+**Decisao.** `SearchHit.score` e sempre similaridade: maior e melhor, faixa [0, 1].
+
+**Motivo.** O Chroma devolve **distancia** -- menor e melhor, faixa [0, 2]. Deixar essa
+convencao vazar para cima e o caminho mais curto para ordenar resultados ao contrario sem
+ninguem perceber: a busca continua "funcionando", so que devolvendo os trechos menos
+relevantes. Cada implementacao converte na sua fronteira.
+
+**Verificado por teste de contrato**, que roda a mesma bateria contra as duas
+implementacoes de `VectorStore` e checa a ordenacao.
+
+---
+
+## ED-033 — Cliente sincrono dentro de aplicacao assincrona
+
+**Decisao.** Toda chamada ao Chroma passa por `asyncio.to_thread`.
+
+**Motivo.** O cliente do Chroma e sincrono. Chamado direto de uma rota `async`, ele
+bloquearia o event loop durante a busca, travando todos os outros requests em andamento
+-- inclusive os que nem usam RAG.

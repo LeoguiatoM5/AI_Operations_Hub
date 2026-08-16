@@ -11,7 +11,10 @@ banco vazio. Reutilizando a mesma conexao, tudo no teste enxerga o mesmo banco.
 """
 
 import json
-from collections.abc import AsyncIterator, Callable
+import shutil
+import tempfile
+from collections.abc import AsyncIterator, Callable, Iterator
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -45,6 +48,25 @@ TRIAGE_PADRAO: dict[str, Any] = {
 def triage_json(**overrides: Any) -> str:
     """Resposta de triagem valida, com campos sobrescritiveis."""
     return json.dumps({**TRIAGE_PADRAO, **overrides}, ensure_ascii=False)
+
+
+# --------------------------------------------------------------------- sistema de arquivos
+
+
+@pytest.fixture
+def temp_dir() -> Iterator[Path]:
+    """Diretorio temporario isolado, removido ao final do teste.
+
+    Usa `mkdtemp` em vez do `tmp_path` do pytest porque este cria tudo sob um diretorio
+    de NOME FIXO (`pytest-of-<usuario>`): se esse diretorio ficar inacessivel em alguma
+    maquina, toda a suite para. Um nome sorteado a cada execucao nao tem esse ponto unico
+    de falha.
+    """
+    path = Path(tempfile.mkdtemp(prefix="aiops-test-"))
+    try:
+        yield path
+    finally:
+        shutil.rmtree(path, ignore_errors=True)
 
 
 # --------------------------------------------------------------------- configuracao
