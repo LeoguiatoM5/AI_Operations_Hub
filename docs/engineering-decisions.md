@@ -263,6 +263,90 @@ deste sistema.
 
 ---
 
+## ED-038 — O corte de relevancia pertence ao modelo de embedding
+
+**Contexto.** `RAG_MIN_SCORE` era um valor unico na configuracao.
+
+**Por que estava errado.** A escala de similaridade depende do modelo. Medido nesta
+base: o melhor acerto do vetorizador lexical fica em 0.25; o do `text-embedding-3-small`
+passa de 0.76. Um corte de 0.15 rejeitaria quase tudo no primeiro e nada no segundo.
+
+**Decisao.** O provedor declara `min_relevant_score`. A configuracao vira sobrescrita
+opcional (`None` por padrao).
+
+**Motivo.** O conhecimento fica junto de quem o tem. Trocar de modelo passa a trazer o
+corte adequado junto, em vez de exigir que alguem lembre de ajustar outra variavel.
+
+**Reconhecimento honesto.** Os valores atuais (0.05 e 0.35) sao pontos de partida
+derivados de poucas medicoes. O valor correto sai do conjunto de avaliacao (V5).
+
+---
+
+## ED-039 — Citacao inventada e erro de validacao
+
+**Decisao.** O schema de resposta do agente de pesquisa e construido **dinamicamente a
+cada consulta**, com as citacoes restritas a `[1, n]`, onde `n` e o numero de trechos
+efetivamente recuperados.
+
+**Motivo.** Se o modelo cita `[7]` quando existem quatro trechos, ele esta inventando a
+origem da informacao. Com o intervalo declarado no schema, isso vira um erro do Pydantic
+e o retry dirigido pede a correcao -- **o mesmo mecanismo que ja garantia formato passa
+a garantir ancoragem**.
+
+A alternativa seria filtrar citacoes invalidas depois. Isso esconderia o problema: a
+resposta continuaria sendo entregue, sem a fonte que a sustentava.
+
+**Complemento.** Um validador de coerencia recusa `answered=true` sem nenhuma citacao --
+afirmar que respondeu sem dizer de onde e, por definicao, resposta nao ancorada.
+
+---
+
+## ED-040 — Sem contexto, o LLM nao e chamado
+
+**Decisao.** Quando nenhum trecho passa do corte de relevancia, a resposta e montada sem
+consultar o modelo.
+
+**Motivo.** Chamar o LLM sem contexto e convidar a alucinacao: ele responde com
+conhecimento proprio, e a resposta parece tao fundamentada quanto uma real. Nao chamar
+economiza a chamada **e** elimina a categoria de erro.
+
+**Verificado em execucao real.** Pergunta sobre ferias numa base sem esse assunto: o
+retriever devolveu um trecho fraco (0.3525, logo acima do corte de 0.35) do documento
+errado, e o agente respondeu `answered: false` com zero citacoes. Duas camadas de defesa,
+a segunda cobrindo a imprecisao da primeira.
+
+---
+
+## ED-041 — Base com modelos de embedding misturados e recusada
+
+**Decisao.** `/rag/query` devolve `409 embedding_model_mismatch` quando ha documentos
+indexados com um modelo diferente do atual.
+
+**Motivo.** Vetores de modelos diferentes ocupam espacos diferentes. Compara-los produz
+similaridades sem significado -- e **o sistema nao teria como perceber**: os numeros
+continuam entre 0 e 1, a busca continua devolvendo resultados, e eles sao aleatorios.
+
+O erro lista os modelos presentes no indice e o que fazer a respeito. E o uso concreto
+da coluna `embedding_model` gravada em cada documento (ED-015).
+
+---
+
+## ED-042 — Nome de colecao validado na configuracao
+
+**Contexto.** O Chroma exige nomes de colecao com 3 a 512 caracteres de `[a-zA-Z0-9._-]`,
+comecando e terminando em alfanumerico.
+
+**Como foi descoberto.** Uma colecao chamada `p1` numa demonstracao produziu um erro
+vindo das entranhas da biblioteca, na primeira indexacao.
+
+**Decisao.** O padrao entra como `pattern` no campo de configuracao.
+
+**Motivo.** Mesmo principio de ED-005: restricao conhecida vira validacao de startup. A
+aplicacao recusa subir com um nome invalido, em vez de aceitar a configuracao e quebrar
+quando alguem enviar o primeiro documento.
+
+---
+
 ## ED-014 — Segredos como `SecretStr`
 
 **Decisao.** `openai_api_key: SecretStr | None`.

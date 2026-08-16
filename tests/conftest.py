@@ -54,6 +54,19 @@ def triage_json(**overrides: Any) -> str:
     return json.dumps({**TRIAGE_PADRAO, **overrides}, ensure_ascii=False)
 
 
+RESEARCH_PADRAO: dict[str, Any] = {
+    "answered": True,
+    "answer": "O prazo para solicitar reembolso e de 30 dias corridos.",
+    "citations": [1],
+    "confidence": 0.9,
+}
+
+
+def research_json(**overrides: Any) -> str:
+    """Resposta de pesquisa valida, com campos sobrescritiveis."""
+    return json.dumps({**RESEARCH_PADRAO, **overrides}, ensure_ascii=False)
+
+
 # --------------------------------------------------------------------- sistema de arquivos
 
 

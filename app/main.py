@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.api.routes import chat, documents, executions, health
+from app.api.routes import chat, documents, executions, health, rag
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import create_engine, create_schema, create_session_factory
@@ -94,6 +94,7 @@ def create_app(
     app.include_router(chat.router)
     app.include_router(executions.router)
     app.include_router(documents.router)
+    app.include_router(rag.router)
 
     return app
 

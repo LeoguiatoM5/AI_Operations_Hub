@@ -104,6 +104,18 @@ class FakeEmbeddingProvider:
     def dimensions(self) -> int:
         return self._dimensions
 
+    @property
+    def min_relevant_score(self) -> float:
+        """Piso baixo, e de proposito.
+
+        A separacao entre acerto e erro na busca lexical e ruim: nesta base, o melhor
+        acerto ficou em 0.250 e um erro chegou a 0.167. Nao existe corte que separe bem
+        os dois. Um piso alto esconderia isso atras de "sem contexto suficiente"; um piso
+        baixo deixa a fraqueza visivel, que e o comportamento honesto para um provedor
+        cuja funcao e testar.
+        """
+        return 0.05
+
     def _vectorize(self, text: str) -> list[float]:
         vector = [0.0] * self._dimensions
         for token in _content_tokens(text):
@@ -142,9 +154,11 @@ class OpenAIEmbeddingProvider:
         model: str,
         dimensions: int,
         timeout_seconds: float = 30.0,
+        min_relevant_score: float = 0.35,
     ) -> None:
         self._model = model
         self._dimensions = dimensions
+        self._min_relevant_score = min_relevant_score
         # max_retries=0 pelo mesmo motivo da camada de LLM: o retry e nosso, medido.
         self._client = AsyncOpenAI(api_key=api_key, timeout=timeout_seconds, max_retries=0)
 
@@ -159,6 +173,16 @@ class OpenAIEmbeddingProvider:
     @property
     def dimensions(self) -> int:
         return self._dimensions
+
+    @property
+    def min_relevant_score(self) -> float:
+        """Medido nesta base: acertos entre 0.59 e 0.77, erros entre 0.38 e 0.42.
+
+        O padrao de 0.35 e conservador -- corta o ruido evidente sem descartar contexto
+        secundario legitimo. O valor definitivo sai da medicao com o conjunto de
+        avaliacao (V5), nao de intuicao.
+        """
+        return self._min_relevant_score
 
     async def _embed(self, texts: Sequence[str]) -> EmbeddingResult:
         started_at = perf_counter()
@@ -223,6 +247,10 @@ class RetryingEmbeddingProvider:
     @property
     def dimensions(self) -> int:
         return self._inner.dimensions
+
+    @property
+    def min_relevant_score(self) -> float:
+        return self._inner.min_relevant_score
 
     @staticmethod
     def _is_retryable(error: Exception) -> bool:

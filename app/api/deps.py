@@ -13,15 +13,18 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.requests import Request
 
+from app.agents.research import ResearchAgent
 from app.agents.triage import TriageAgent
 from app.core.config import Settings
 from app.db.session import session_scope
 from app.llm.base import LLMProvider
 from app.rag.base import EmbeddingProvider, VectorStore
+from app.rag.retriever import Retriever
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.execution_repository import ExecutionRepository
 from app.services.document_service import DocumentService
 from app.services.execution_service import ExecutionService
+from app.services.rag_service import RagService
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -105,5 +108,35 @@ def get_document_service(
     )
 
 
+def get_retriever(
+    embedder: EmbeddingProviderDep, store: VectorStoreDep, settings: SettingsDep
+) -> Retriever:
+    return Retriever(
+        embedder,
+        store,
+        top_k=settings.rag_top_k,
+        # None mantem o piso declarado pelo provedor, que conhece a propria escala.
+        min_score=settings.rag_min_score,
+    )
+
+
+RetrieverDep = Annotated[Retriever, Depends(get_retriever)]
+
+
+def get_rag_service(
+    retriever: RetrieverDep,
+    provider: LLMProviderDep,
+    embedder: EmbeddingProviderDep,
+    repository: DocumentRepositoryDep,
+) -> RagService:
+    return RagService(
+        retriever,
+        ResearchAgent(provider),
+        repository,
+        embedding_model=embedder.model,
+    )
+
+
 ExecutionServiceDep = Annotated[ExecutionService, Depends(get_execution_service)]
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
+RagServiceDep = Annotated[RagService, Depends(get_rag_service)]

@@ -79,6 +79,20 @@ class EmbeddingProvider(Protocol):
         """Tamanho do vetor. O banco vetorial precisa disso para validar o que recebe."""
         ...
 
+    @property
+    def min_relevant_score(self) -> float:
+        """Similaridade abaixo da qual um resultado nao deve ser considerado relevante.
+
+        Vive no provedor, e nao na configuracao global, porque a escala de similaridade
+        depende do modelo. Medido nesta base: o melhor acerto do vetorizador lexical fica
+        em torno de 0.25, enquanto o do `text-embedding-3-small` passa de 0.75. Um valor
+        unico para os dois rejeitaria tudo em um caso e nada no outro.
+
+        E um ponto de partida, nao uma verdade: o valor correto sai da medicao com o
+        conjunto de avaliacao (V5).
+        """
+        ...
+
     async def embed_documents(self, texts: Sequence[str]) -> EmbeddingResult:
         """Vetoriza trechos que serao indexados."""
         ...

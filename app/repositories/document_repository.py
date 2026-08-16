@@ -120,6 +120,22 @@ class DocumentRepository:
             statement = statement.where(Document.status == status)
         return int((await self._session.execute(statement)).scalar_one())
 
+    async def distinct_embedding_models(self) -> set[str]:
+        """Modelos de embedding presentes entre os documentos indexados.
+
+        Mais de um valor significa base misturada: os vetores nao sao comparaveis entre
+        si, e a busca passa a devolver resultados sem significado.
+        """
+        statement = (
+            select(Document.embedding_model)
+            .where(
+                Document.status == DocumentStatus.INDEXED,
+                Document.embedding_model.is_not(None),
+            )
+            .distinct()
+        )
+        return {row for row in (await self._session.execute(statement)).scalars().all() if row}
+
     async def total_chunks(self) -> int:
         statement = select(func.coalesce(func.sum(Document.chunk_count), 0)).where(
             Document.status == DocumentStatus.INDEXED

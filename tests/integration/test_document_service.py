@@ -34,6 +34,7 @@ class BrokenEmbeddingProvider:
     name = "quebrado"
     model = "quebrado-1"
     dimensions = 8
+    min_relevant_score = 0.0
 
     async def embed_documents(self, texts: Sequence[str]) -> EmbeddingResult:
         raise RuntimeError("provedor de embedding indisponivel")

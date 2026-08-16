@@ -64,15 +64,26 @@ class Settings(BaseSettings):
     # RAG: banco vetorial
     vector_store: VectorStoreName = "chroma"
     chroma_path: str = "./data/chroma"
-    chroma_collection: str = "knowledge_base"
+    #: O Chroma exige 3 a 512 caracteres de [a-zA-Z0-9._-], comecando e terminando em
+    #: alfanumerico. Validar aqui faz a aplicacao recusar subir com um nome invalido, em
+    #: vez de quebrar na primeira indexacao com uma mensagem vinda das entranhas da
+    #: biblioteca.
+    chroma_collection: str = Field(
+        default="knowledge_base",
+        min_length=3,
+        max_length=512,
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9._-]*[a-zA-Z0-9]$",
+    )
 
     # RAG: recuperacao
     chunk_size: int = Field(default=1000, gt=0, le=8000)
     chunk_overlap: int = Field(default=150, ge=0, le=2000)
     rag_top_k: int = Field(default=5, ge=1, le=50)
-    #: Similaridade abaixo disto e tratada como "sem contexto suficiente". Devolver um
-    #: trecho irrelevante e pior que admitir que a base nao cobre a pergunta.
-    rag_min_score: float = Field(default=0.15, ge=0.0, le=1.0)
+    #: Corte de relevancia. `None` (padrao) usa o piso declarado pelo provedor de
+    #: embedding -- a escala de similaridade depende do modelo, entao um valor unico aqui
+    #: rejeitaria quase tudo com um provedor e nada com outro. Preencha apenas para
+    #: sobrescrever conscientemente.
+    rag_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
 
     # upload
     #: Teto de tamanho por arquivo. Limita consumo de memoria, tempo de processamento e

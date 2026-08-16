@@ -4,7 +4,7 @@ Plataforma de automacao empresarial que recebe uma solicitacao em linguagem natu
 interpreta a intencao, consulta a base de conhecimento corporativa, decide quais acoes
 executar e dispara automacoes -- registrando cada decisao tomada no caminho.
 
-> **Status:** em construcao. Versao atual: `V2.2 - Ingestao de documentos`.
+> **Status:** em construcao. Versao atual: `V2 completo - RAG com fontes rastreaveis`.
 
 ---
 
@@ -110,6 +110,7 @@ pytest                # testes
 | `GET` | `/documents` | Lista documentos, com filtro por status |
 | `GET` | `/documents/{id}` | Detalha um documento |
 | `DELETE` | `/documents/{id}` | Remove o documento e seus trechos do indice |
+| `POST` | `/rag/query` | Responde uma pergunta usando a base, citando as fontes |
 
 Novos endpoints entram a cada versao do roadmap.
 
@@ -329,6 +330,89 @@ trecho indexado sem origem identificavel.
 | Extensao nao suportada | `415` | `unsupported_document` |
 | Arquivo corrompido | `422` | `document_extraction_failed` |
 | Sem texto extraivel (PDF escaneado) | `422` | `empty_document` |
+
+---
+
+## Consulta com fontes rastreaveis
+
+```http
+POST /rag/query
+{"question": "Qual o prazo para solicitar reembolso de despesas?"}
+```
+
+```json
+{
+  "answered": true,
+  "answer": "Colaboradores podem solicitar reembolso de despesas em até 30 dias corridos após o gasto.",
+  "confidence": 1.0,
+  "sources": [
+    {"number": 1, "cited": true, "score": 0.767, "filename": "politica-reembolso.md",
+     "document_id": "03c4e62f...", "excerpt": "# Politica de reembolso..."}
+  ],
+  "retrieval": {"chunks_retrieved": 1, "chunks_cited": 1, "min_score": 0.35, "best_score": 0.7666},
+  "usage": {"total_tokens": 419, "cost_usd": 0.00012242},
+  "repairs": 0
+}
+```
+
+### Nao responder e uma resposta
+
+Pergunta cujo assunto nao esta na base, medida em execucao real:
+
+```
+PERGUNTA: Quantos dias de ferias eu tenho direito por ano?
+  respondeu : false
+  resposta  : Os trechos fornecidos nao contem informacoes sobre o numero de dias de
+              ferias a que um colaborador tem direito por ano.
+  busca     : 1 trecho recuperado, 0 citados | corte=0.35 melhor=0.3525
+    [1]        0.352  politica-reembolso.md
+```
+
+**Duas camadas de defesa, e a segunda cobriu a falha da primeira.** A recuperacao errou:
+devolveu um trecho de 0.3525, logo acima do corte, do documento errado. O agente, ainda
+assim, recusou-se a responder. Um sistema que so confia no corte de similaridade teria
+respondido sobre reembolso a uma pergunta sobre ferias.
+
+### Anti-alucinacao pela validacao
+
+O schema de resposta e construido **a cada consulta**, com as citacoes restritas ao
+intervalo de trechos realmente recuperados:
+
+```python
+Citation = Annotated[int, Field(ge=1, le=source_count)]
+```
+
+Se o modelo citar `[7]` quando existem quatro trechos, o Pydantic rejeita e o retry
+dirigido pede a correcao -- o mesmo mecanismo que garante formato passa a garantir
+**ancoragem**. Um validador complementar recusa `answered: true` sem nenhuma citacao:
+afirmar que respondeu sem dizer de onde e, por definicao, resposta nao ancorada.
+
+Quando nenhum trecho passa do corte, **o LLM nao e chamado**. Consultar o modelo sem
+contexto e convidar a alucinacao: ele responderia com conhecimento proprio, e a resposta
+pareceria tao fundamentada quanto uma real.
+
+### O corte de relevancia pertence ao modelo
+
+```python
+provider.min_relevant_score   # fake: 0.05   |   text-embedding-3-small: 0.35
+```
+
+A escala de similaridade depende do modelo de embedding -- um valor unico na configuracao
+rejeitaria quase tudo com um provedor e nada com outro. `RAG_MIN_SCORE` existe apenas
+como sobrescrita consciente.
+
+### Base misturada e recusada
+
+```json
+{"error": {"code": "embedding_model_mismatch",
+  "details": {"current_model": "text-embedding-3-small",
+              "models_in_index": ["fake-embedding-1"],
+              "hint": "Remova e reenvie os documentos, ou volte ao modelo anterior."}}}
+```
+
+Vetores de modelos diferentes ocupam espacos diferentes: compara-los produz
+similaridades sem significado. E o sistema **nao teria como perceber** -- os numeros
+continuam entre 0 e 1 e resultados continuam aparecendo. Eles e que seriam aleatorios.
 
 ---
 
