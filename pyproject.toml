@@ -4,22 +4,28 @@ version = "0.1.0"
 description = "Plataforma de automacao empresarial orientada a agentes de IA"
 readme = "README.md"
 requires-python = ">=3.12"
+# Piso minimo + teto de major version. Sem o teto, `pip install` daqui a seis meses
+# pode trazer uma versao com mudancas incompatives e quebrar o projeto sem que uma
+# linha de codigo tenha mudado.
 dependencies = [
-    "fastapi>=0.115",
-    "uvicorn[standard]>=0.32",
-    "pydantic>=2.9",
-    "pydantic-settings>=2.6",
-    "structlog>=24.4",
+    "fastapi>=0.115,<1",
+    "uvicorn[standard]>=0.32,<1",
+    "pydantic>=2.9,<3",
+    "pydantic-settings>=2.6,<3",
+    "structlog>=24.4,<27",
+    "openai>=3.1,<4",
+    "sqlalchemy[asyncio]>=2.0,<3",
+    "aiosqlite>=0.20,<1",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=8.3",
-    "pytest-asyncio>=0.24",
-    "pytest-cov>=6.0",
-    "httpx>=0.27",
-    "ruff>=0.8",
-    "mypy>=1.13",
+    "pytest>=8.3,<9",
+    "pytest-asyncio>=0.24,<2",
+    "pytest-cov>=6.0,<8",
+    "httpx>=0.27,<1",
+    "ruff>=0.8,<1",
+    "mypy>=1.13,<2",
 ]
 
 [build-system]
@@ -54,6 +60,7 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
+"scripts/*" = ["T20"] # scripts de linha de comando escrevem no stdout de proposito
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]
@@ -65,6 +72,21 @@ show_error_codes = true
 [[tool.mypy.overrides]]
 module = "tests.*"
 disallow_untyped_defs = false
+
+# ---------------------------------------------------------------- coverage
+[tool.coverage.run]
+source = ["app"]
+# O SQLAlchemy assincrono executa o ORM dentro de greenlets. Sem declarar isso, o
+# coverage perde o rastreamento nesses trechos e reporta como nao coberto codigo que
+# os testes de fato executam.
+concurrency = ["greenlet", "thread"]
+
+[tool.coverage.report]
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "\\.\\.\\.",  # corpo de metodo de Protocol
+]
 
 # ---------------------------------------------------------------- pytest
 [tool.pytest.ini_options]
