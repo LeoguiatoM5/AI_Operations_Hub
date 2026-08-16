@@ -1,0 +1,45 @@
+# Ambiente virtual / dependencias
+.venv/
+venv/
+env/
+*.egg-info/
+build/
+dist/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Segredos e configuracao local
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
+credentials.json
+service-account*.json
+
+# Dados gerados em runtime (SQLite, ChromaDB, uploads)
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Ferramentas e IDEs
+.claude/
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Relatorios locais de avaliacao
+evals/reports/*.json
+evals/reports/*.md
+!evals/reports/.gitkeep
