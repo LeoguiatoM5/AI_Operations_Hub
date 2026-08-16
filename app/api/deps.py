@@ -17,7 +17,10 @@ from app.agents.triage import TriageAgent
 from app.core.config import Settings
 from app.db.session import session_scope
 from app.llm.base import LLMProvider
+from app.rag.base import EmbeddingProvider, VectorStore
+from app.repositories.document_repository import DocumentRepository
 from app.repositories.execution_repository import ExecutionRepository
+from app.services.document_service import DocumentService
 from app.services.execution_service import ExecutionService
 
 
@@ -36,6 +39,19 @@ def get_llm_provider(request: Request) -> LLMProvider:
     return cast(LLMProvider, request.app.state.llm_provider)
 
 
+def get_embedding_provider(request: Request) -> EmbeddingProvider:
+    return cast(EmbeddingProvider, request.app.state.embedding_provider)
+
+
+def get_vector_store(request: Request) -> VectorStore:
+    """Indice compartilhado pela aplicacao inteira.
+
+    Um por processo, e nao um por request: abrir o Chroma custa I/O de disco, e o
+    indice e recurso global, nao estado de uma requisicao.
+    """
+    return cast(VectorStore, request.app.state.vector_store)
+
+
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Sessao de banco com transacao por request.
 
@@ -51,13 +67,20 @@ SettingsDep = Annotated[Settings, Depends(get_app_settings)]
 CorrelationIdDep = Annotated[str | None, Depends(get_correlation_id)]
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
+EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
+VectorStoreDep = Annotated[VectorStore, Depends(get_vector_store)]
 
 
 def get_execution_repository(session: SessionDep) -> ExecutionRepository:
     return ExecutionRepository(session)
 
 
+def get_document_repository(session: SessionDep) -> DocumentRepository:
+    return DocumentRepository(session)
+
+
 ExecutionRepositoryDep = Annotated[ExecutionRepository, Depends(get_execution_repository)]
+DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
 
 
 def get_execution_service(
@@ -66,4 +89,21 @@ def get_execution_service(
     return ExecutionService(repository, TriageAgent(provider))
 
 
+def get_document_service(
+    repository: DocumentRepositoryDep,
+    embedder: EmbeddingProviderDep,
+    store: VectorStoreDep,
+    settings: SettingsDep,
+) -> DocumentService:
+    return DocumentService(
+        repository,
+        embedder,
+        store,
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+        max_size_bytes=settings.max_upload_bytes,
+    )
+
+
 ExecutionServiceDep = Annotated[ExecutionService, Depends(get_execution_service)]
+DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]

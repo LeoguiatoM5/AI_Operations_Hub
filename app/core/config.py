@@ -74,6 +74,11 @@ class Settings(BaseSettings):
     #: trecho irrelevante e pior que admitir que a base nao cobre a pergunta.
     rag_min_score: float = Field(default=0.15, ge=0.0, le=1.0)
 
+    # upload
+    #: Teto de tamanho por arquivo. Limita consumo de memoria, tempo de processamento e
+    #: custo de vetorizacao de uma unica requisicao.
+    max_upload_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+
     # banco de dados
     # O caminho relativo mantem o arquivo dentro do projeto (e fora do Git, via
     # .gitignore). Trocar para PostgreSQL e mudar apenas esta URL.

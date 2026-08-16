@@ -4,7 +4,7 @@ Plataforma de automacao empresarial que recebe uma solicitacao em linguagem natu
 interpreta a intencao, consulta a base de conhecimento corporativa, decide quais acoes
 executar e dispara automacoes -- registrando cada decisao tomada no caminho.
 
-> **Status:** em construcao. Versao atual: `V2.1 - Motor de busca semantica`.
+> **Status:** em construcao. Versao atual: `V2.2 - Ingestao de documentos`.
 
 ---
 
@@ -106,6 +106,10 @@ pytest                # testes
 | `POST` | `/chat` | Processa uma solicitacao em linguagem natural e devolve a execucao completa |
 | `GET` | `/executions` | Lista execucoes com paginacao e filtro por status |
 | `GET` | `/executions/{id}` | Detalha uma execucao com toda a cadeia de agentes |
+| `POST` | `/documents/upload` | Ingere `.txt`, `.md`, `.json` ou `.pdf` na base de conhecimento |
+| `GET` | `/documents` | Lista documentos, com filtro por status |
+| `GET` | `/documents/{id}` | Detalha um documento |
+| `DELETE` | `/documents/{id}` | Remove o documento e seus trechos do indice |
 
 Novos endpoints entram a cada versao do roadmap.
 
@@ -264,6 +268,67 @@ demonstravel, em vez de afirmada.
 A mesma bateria de 13 testes roda contra `InMemoryVectorStore` e `ChromaVectorStore`.
 E o que sustenta a afirmacao de que trocar de banco vetorial e mudar uma variavel: se o
 Chroma divergir do comportamento de referencia, a suite quebra.
+
+---
+
+## Ingestao de documentos
+
+```
+POST /documents/upload   (multipart, campo `file`)
+```
+
+```json
+{
+  "document_id": "f8402ca6b1a549dcaae59cad561531a6",
+  "filename": "runbook.json",
+  "status": "indexed",
+  "chunk_count": 1,
+  "char_count": 103,
+  "content_hash": "e520362acc7d80d222a27054851018dd...",
+  "embedding_provider": "openai",
+  "embedding_model": "text-embedding-3-small",
+  "metadata": {"json_fields": 3},
+  "indexed_at": "2026-08-16T19:23:50.874906Z"
+}
+```
+
+Formatos aceitos: `.txt`, `.md`, `.markdown`, `.json`, `.pdf`.
+
+### Consistencia entre dois sistemas
+
+A ingestao escreve no banco relacional (metadados) e no banco vetorial (trechos). **Nao
+existe transacao comum entre os dois.** Um processo interrompido no meio deixaria um
+documento registrado sem nenhum vetor indexado -- invisivel na busca, sem erro algum.
+
+A resposta e estado explicito e ordem deliberada:
+
+```
+pending -> processing -> grava vetores -> indexed
+```
+
+Um documento parado em `processing` e evidencia de processo interrompido, nao misterio.
+Na falha, os vetores parciais sao removidos antes de o documento virar `failed`. Na
+remocao a ordem se inverte -- vetores primeiro, metadados depois -- para nunca existir
+trecho indexado sem origem identificavel.
+
+### Cada formato tem sua armadilha
+
+| Formato | Tratamento |
+|---|---|
+| `.txt` / `.md` | Cadeia de codificacoes com `utf-8-sig` **antes** de `utf-8` (ver ED-037) |
+| `.json` | Achatado em linhas `caminho: valor` -- indexar JSON cru gastaria o trecho com chaves e colchetes |
+| `.pdf` | Assinatura verificada; PDF sem texto extraivel e rejeitado, nao indexado vazio |
+| qualquer | SHA-256 do conteudo impede reindexacao duplicada (`409`) |
+
+### Respostas de erro
+
+| Situacao | HTTP | Codigo |
+|---|---|---|
+| Conteudo identico ja ingerido | `409` | `duplicate_document` |
+| Acima do limite de tamanho | `413` / `422` | `document_too_large` |
+| Extensao nao suportada | `415` | `unsupported_document` |
+| Arquivo corrompido | `422` | `document_extraction_failed` |
+| Sem texto extraivel (PDF escaneado) | `422` | `empty_document` |
 
 ---
 

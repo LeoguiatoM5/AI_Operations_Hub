@@ -25,3 +25,23 @@ class ExecutionStatus(StrEnum):
     def is_terminal(self) -> bool:
         """Estados a partir dos quais a execucao nao avanca sozinha."""
         return self in {ExecutionStatus.COMPLETED, ExecutionStatus.FAILED}
+
+
+class DocumentStatus(StrEnum):
+    """Ciclo de vida de um documento na base de conhecimento.
+
+    O estado existe porque a ingestao escreve em DOIS sistemas que nao compartilham
+    transacao: o banco relacional (metadados) e o banco vetorial (trechos). Sem status
+    explicito, um processo interrompido no meio deixaria um documento registrado e nao
+    indexado -- invisivel na busca, sem erro algum.
+    """
+
+    PENDING = "pending"
+    PROCESSING = "processing"
+    INDEXED = "indexed"
+    FAILED = "failed"
+
+    @property
+    def is_searchable(self) -> bool:
+        """Somente documentos indexados participam da busca."""
+        return self is DocumentStatus.INDEXED

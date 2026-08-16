@@ -184,6 +184,85 @@ um repositorio de portfolio, isso significa um recrutador clonando e encontrando
 
 ---
 
+## ED-034 — Consistencia entre dois sistemas sem transacao comum
+
+**Contexto.** A ingestao escreve no banco relacional (metadados) e no banco vetorial
+(trechos). Nao existe `ROLLBACK` que desfaca os dois juntos.
+
+**Risco concreto.** Um processo interrompido entre as duas escritas deixaria um
+documento registrado como existente e sem nenhum vetor indexado. A busca simplesmente
+nao o encontraria -- para sempre, sem erro algum. Falha silenciosa e a pior categoria.
+
+**Decisao.** Estado explicito e ordem deliberada:
+
+```
+pending -> processing -> grava vetores -> indexed
+```
+
+`processing` marca o ponto a partir do qual ha intencao declarada de indexar. Um
+documento parado nesse estado e **evidencia de processo interrompido**, nao misterio.
+
+Na falha, os vetores parciais sao removidos antes de o documento ser marcado como
+`failed` -- sem isso, sobrariam trechos orfaos aparecendo em buscas e apontando para um
+documento que o sistema considera invalido.
+
+Na remocao a ordem se inverte: vetores primeiro, metadados depois. Um trecho indexado
+sem documento correspondente apareceria na busca sem origem identificavel.
+
+---
+
+## ED-035 — Deduplicacao por hash do conteudo
+
+**Decisao.** `content_hash` (SHA-256) e coluna unica. Reenviar o mesmo arquivo devolve
+`409`, com o id do documento original.
+
+**Motivo.** Reindexar o mesmo conteudo duplicaria trechos no indice. O efeito nao seria
+um erro visivel, e sim uma degradacao gradual: as mesmas passagens ocupando varias
+posicoes do top-k, expulsando resultados diversos. A busca "continua funcionando",
+piorando.
+
+**Detalhe.** A comparacao e por conteudo, nao por nome: dois envios do mesmo arquivo com
+nomes diferentes sao o mesmo documento, e dois arquivos de mesmo nome com conteudo
+diferente nao sao.
+
+---
+
+## ED-036 — Documento sem texto e erro, nao sucesso
+
+**Decisao.** Um arquivo que nao produz texto extraivel e rejeitado com `422`, em vez de
+ser indexado vazio.
+
+**Motivo.** O caso tipico e o PDF escaneado -- imagem de pagina, sem camada de texto.
+Indexado em silencio, ele constaria da base, nunca apareceria em busca alguma, e o
+usuario nao teria como descobrir por que. A mensagem de erro diz explicitamente que OCR
+seria necessario e que o sistema nao faz OCR.
+
+---
+
+## ED-037 — Ordem das codificacoes de texto
+
+**Contexto.** `TEXT_ENCODINGS` tentava `utf-8` antes de `utf-8-sig`.
+
+**Como foi descoberto.** Na demonstracao de ingestao: um `.json` gravado por
+`Set-Content -Encoding utf8` do PowerShell foi rejeitado com "Unexpected UTF-8 BOM".
+
+**Causa.** Decodificar um arquivo com BOM usando `utf-8` puro **nao levanta excecao**:
+devolve a string com um U+FEFF invisivel no inicio. Sem excecao, nenhuma codificacao
+seguinte era tentada, e o BOM seguia adiante -- quebrando o parse de JSON e sujando o
+primeiro trecho indexado de qualquer arquivo de texto.
+
+**Decisao.** `utf-8-sig` vem primeiro (remove o BOM quando existe, comporta-se como
+`utf-8` quando nao existe), e o resultado ainda passa por um `lstrip` defensivo.
+
+**Por que importa.** Bloco de Notas, Excel e PowerShell gravam BOM por padrao. Isso
+atinge boa parte dos arquivos que um usuario corporativo envia -- exatamente o publico
+deste sistema.
+
+**Licao.** Uma cadeia de fallbacks so funciona se cada etapa falhar de forma detectavel.
+`utf-8` "funcionava" com BOM, e por isso o fallback correto nunca era alcancado.
+
+---
+
 ## ED-014 — Segredos como `SecretStr`
 
 **Decisao.** `openai_api_key: SecretStr | None`.

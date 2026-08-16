@@ -1,0 +1,23 @@
+# Normaliza finais de linha no repositorio.
+#
+# Sem isto, cada colaborador grava o final de linha do proprio sistema e o historico
+# acumula diffs fantasma -- arquivos aparecem inteiros como modificados sem que uma linha
+# tenha mudado. Guardamos sempre LF no repositorio; o Git converte para o padrao local no
+# checkout quando necessario.
+* text=auto eol=lf
+
+# Arquivos binarios: nunca converter.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.db binary
+*.sqlite binary
+*.sqlite3 binary
+
+# Scripts do Windows precisam de CRLF para rodar em qualquer shell nativo.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

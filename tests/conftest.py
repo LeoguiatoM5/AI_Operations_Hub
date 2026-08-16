@@ -30,7 +30,11 @@ from app.db.session import create_session_factory
 from app.llm.base import LLMProvider
 from app.llm.fake_provider import FakeLLMProvider
 from app.main import create_app
+from app.rag.embeddings import FakeEmbeddingProvider
+from app.rag.memory_store import InMemoryVectorStore
+from app.repositories.document_repository import DocumentRepository
 from app.repositories.execution_repository import ExecutionRepository
+from app.services.document_service import DocumentService
 
 # --------------------------------------------------------------------- dados de apoio
 
@@ -79,6 +83,9 @@ def settings() -> Settings:
         app_env="test",
         log_level="WARNING",
         log_format="console",
+        # Limite pequeno de proposito: torna o teste do limite viavel sem gerar um
+        # arquivo de dez megabytes a cada execucao.
+        max_upload_bytes=64 * 1024,
     )
 
 
@@ -110,6 +117,11 @@ def executions(session: AsyncSession) -> ExecutionRepository:
     return ExecutionRepository(session)
 
 
+@pytest.fixture
+def documents(session: AsyncSession) -> DocumentRepository:
+    return DocumentRepository(session)
+
+
 # --------------------------------------------------------------------- LLM
 
 
@@ -123,8 +135,47 @@ def provider() -> FakeLLMProvider:
 
 
 @pytest.fixture
-def app(settings: Settings, engine: AsyncEngine, provider: FakeLLMProvider) -> FastAPI:
-    return create_app(settings, engine=engine, llm_provider=provider)
+def embedder() -> FakeEmbeddingProvider:
+    return FakeEmbeddingProvider()
+
+
+@pytest.fixture
+def vector_store() -> InMemoryVectorStore:
+    return InMemoryVectorStore()
+
+
+@pytest.fixture
+def document_service(
+    documents: DocumentRepository,
+    embedder: FakeEmbeddingProvider,
+    vector_store: InMemoryVectorStore,
+    settings: Settings,
+) -> DocumentService:
+    return DocumentService(
+        documents,
+        embedder,
+        vector_store,
+        chunk_size=settings.chunk_size,
+        chunk_overlap=settings.chunk_overlap,
+        max_size_bytes=settings.max_upload_bytes,
+    )
+
+
+@pytest.fixture
+def app(
+    settings: Settings,
+    engine: AsyncEngine,
+    provider: FakeLLMProvider,
+    embedder: FakeEmbeddingProvider,
+    vector_store: InMemoryVectorStore,
+) -> FastAPI:
+    return create_app(
+        settings,
+        engine=engine,
+        llm_provider=provider,
+        embedding_provider=embedder,
+        vector_store=vector_store,
+    )
 
 
 @pytest.fixture

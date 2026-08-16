@@ -15,12 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.api.routes import chat, executions, health
+from app.api.routes import chat, documents, executions, health
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import create_engine, create_schema, create_session_factory
 from app.llm.base import LLMProvider
 from app.llm.factory import build_llm_provider
+from app.rag.base import EmbeddingProvider, VectorStore
+from app.rag.factory import build_embedding_provider, build_vector_store
 
 logger = get_logger(__name__)
 
@@ -42,6 +44,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     yield
 
     await app.state.llm_provider.aclose()
+    await app.state.embedding_provider.aclose()
+    await app.state.vector_store.aclose()
     await engine.dispose()
     logger.info("application_stopped")
 
@@ -51,11 +55,13 @@ def create_app(
     *,
     engine: AsyncEngine | None = None,
     llm_provider: LLMProvider | None = None,
+    embedding_provider: EmbeddingProvider | None = None,
+    vector_store: VectorStore | None = None,
 ) -> FastAPI:
     """Monta a aplicacao FastAPI.
 
-    `engine` e `llm_provider` sao injetaveis para que os testes usem um banco em memoria
-    e um provider deterministico, sem tocar em rede nem em disco.
+    Todas as dependencias externas sao injetaveis para que os testes usem banco em
+    memoria, provider deterministico e indice volatil -- sem tocar em rede nem em disco.
     """
     settings = settings or get_settings()
     configure_logging(settings)
@@ -77,6 +83,8 @@ def create_app(
     app.state.engine = engine or create_engine(settings)
     app.state.session_factory = create_session_factory(app.state.engine)
     app.state.llm_provider = llm_provider or build_llm_provider(settings)
+    app.state.embedding_provider = embedding_provider or build_embedding_provider(settings)
+    app.state.vector_store = vector_store or build_vector_store(settings)
     app.state.started_at = monotonic()
 
     app.add_middleware(CorrelationIdMiddleware)
@@ -85,6 +93,7 @@ def create_app(
     app.include_router(health.router)
     app.include_router(chat.router)
     app.include_router(executions.router)
+    app.include_router(documents.router)
 
     return app
 
