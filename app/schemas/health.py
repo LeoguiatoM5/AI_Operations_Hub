@@ -13,3 +13,5 @@ class HealthResponse(BaseModel):
     version: str = Field(description="Versao em execucao.")
     environment: str = Field(description="Ambiente configurado.")
     uptime_seconds: float = Field(description="Tempo desde a inicializacao do processo.")
+    llm_provider: str = Field(description="Provedor de LLM em uso.")
+    llm_model: str = Field(description="Modelo configurado.")

@@ -9,7 +9,8 @@ from time import monotonic
 from fastapi import APIRouter, Request
 
 from app import __version__
-from app.api.deps import SettingsDep
+from app.api.deps import LLMProviderDep, SettingsDep
+from app.api.responses import with_errors
 from app.schemas.health import HealthResponse
 
 router = APIRouter(tags=["health"])
@@ -19,8 +20,11 @@ router = APIRouter(tags=["health"])
     "/health",
     response_model=HealthResponse,
     summary="Verifica se a aplicacao esta no ar",
+    responses=with_errors(),
 )
-async def health(request: Request, settings: SettingsDep) -> HealthResponse:
+async def health(
+    request: Request, settings: SettingsDep, provider: LLMProviderDep
+) -> HealthResponse:
     started_at: float = request.app.state.started_at
     return HealthResponse(
         status="ok",
@@ -28,4 +32,6 @@ async def health(request: Request, settings: SettingsDep) -> HealthResponse:
         version=__version__,
         environment=settings.app_env,
         uptime_seconds=round(monotonic() - started_at, 3),
+        llm_provider=provider.name,
+        llm_model=provider.model,
     )
