@@ -1,0 +1,173 @@
+{
+  "name": "AI Operations Hub - acao com aprovacao humana",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hub/solicitacao",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000001",
+      "name": "Solicitacao recebida",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-320, 0],
+      "webhookId": "a1000000-0000-4000-8000-000000000001"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:8000/agents/run",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ task: $json.body.task, data: $json.body.data ?? null }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "a1000000-0000-4000-8000-000000000002",
+      "name": "Chamar o Hub",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-100, 0],
+      "notes": "host.docker.internal alcanca a API rodando no host. Timeout alto porque o workflow multiagente faz varias chamadas de LLM."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1000000-0000-4000-8000-000000000001",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "waiting_approval",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000003",
+      "name": "Pausou para aprovacao?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [120, 0],
+      "notes": "O Hub decide isto pelo escopo da ferramenta escolhida, nao pelo texto do pedido."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ situacao: 'aguardando aprovacao humana', execution_id: $json.execution_id, approval_id: $json.pending_approval.id, ferramenta: $json.pending_approval.tool, argumentos: $json.pending_approval.arguments, decidir_em: 'POST http://localhost:8000/approvals/' + $json.pending_approval.id + '/approve' }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000004",
+      "name": "Responder: aguardando pessoa",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [400, -120],
+      "notes": "Nada foi executado ainda. O resultado final NAO vem por aqui: chega depois no webhook /hub/resultado."
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ situacao: 'concluido sem aprovacao', execution_id: $json.execution_id, status: $json.status, relatorio: $json.report }) }}",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000005",
+      "name": "Responder: concluido",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [400, 120],
+      "notes": "Plano so de leitura: terminou na propria resposta HTTP, e o Hub nao publica callback para nao entregar a mesma informacao duas vezes."
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "hub/resultado",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000006",
+      "name": "Resultado do Hub",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-320, 320],
+      "webhookId": "a1000000-0000-4000-8000-000000000006",
+      "notes": "RESULT_CALLBACK_URL do Hub aponta para ca. E o segundo trigger: a execucao que pausou termina horas depois, quando ninguem esta mais esperando a resposta HTTP."
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "d1000000-0000-4000-8000-000000000001",
+              "name": "execution_id",
+              "value": "={{ $json.body.execution_id }}",
+              "type": "string"
+            },
+            {
+              "id": "d1000000-0000-4000-8000-000000000002",
+              "name": "desfecho",
+              "value": "={{ $json.body.automation?.executed ? 'acao executada' : ($json.body.automation?.rejected ? 'recusada por ' + $json.body.automation.decided_by : 'sem acao') }}",
+              "type": "string"
+            },
+            {
+              "id": "d1000000-0000-4000-8000-000000000003",
+              "name": "custo_usd",
+              "value": "={{ $json.body.usage.cost_usd }}",
+              "type": "number"
+            },
+            {
+              "id": "d1000000-0000-4000-8000-000000000004",
+              "name": "relatorio",
+              "value": "={{ $json.body.report?.executive_summary ?? '' }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a1000000-0000-4000-8000-000000000007",
+      "name": "Registrar desfecho",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [-100, 320],
+      "notes": "Ponto de extensao: daqui sai o que a operacao precisar -- planilha, ticket, e-mail. O Hub e o cerebro; isto sao os bracos."
+    }
+  ],
+  "connections": {
+    "Solicitacao recebida": {
+      "main": [[{ "node": "Chamar o Hub", "type": "main", "index": 0 }]]
+    },
+    "Chamar o Hub": {
+      "main": [[{ "node": "Pausou para aprovacao?", "type": "main", "index": 0 }]]
+    },
+    "Pausou para aprovacao?": {
+      "main": [
+        [{ "node": "Responder: aguardando pessoa", "type": "main", "index": 0 }],
+        [{ "node": "Responder: concluido", "type": "main", "index": 0 }]
+      ]
+    },
+    "Resultado do Hub": {
+      "main": [[{ "node": "Registrar desfecho", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "instanceId": "ai-operations-hub"
+  },
+  "tags": []
+}

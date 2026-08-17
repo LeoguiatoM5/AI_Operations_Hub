@@ -3,8 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado durante o **V4** (4.1 a 4.3 concluidas; 4.4 com o Slack pronto e o n8n
-bloqueado em infraestrutura).
+Atualizado ao final do **V4**.
 
 ---
 
@@ -15,12 +14,12 @@ bloqueado em infraestrutura).
 | V1 | FastAPI, camada multi-LLM, agente de triagem, persistencia, observabilidade | concluido |
 | V2 | RAG com ChromaDB, ingestao de documentos, consulta com fontes citadas | concluido |
 | V3 | LangGraph, quatro agentes, roteamento por plano, checkpointer persistente | concluido |
-| V4 | Integracoes externas e human-in-the-loop | **em curso** |
+| V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | planejado |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
 
-**Numeros:** 415 testes, 97% de cobertura, `ruff` e `mypy` limpos, 63 decisoes
+**Numeros:** 435 testes, 97% de cobertura, `ruff` e `mypy` limpos, 67 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -37,6 +36,7 @@ app/
   rag/           embeddings, vector stores (memory/chroma), chunking, loaders, retriever
   agents/        triage, research, analysis, automation, reporter + prompts/*.md
   tools/         Protocol Tool + escopo read/write + registro + notify + slack + knowledge
+  integrations/  saidas emitidas pela aplicacao, nao escolhidas por agente (callback)
   workflows/     state (TypedDict + reducers), nodes, graph, checkpointer
   services/      execution, document, rag, workflow   <- regra de negocio, sem FastAPI
   repositories/  acesso a dados (execution, document)
@@ -168,15 +168,17 @@ Como ficou:
 - `GET /health` passou a dizer qual canal esta ativo: uma aprovacao significa coisas
   diferentes conforme a mensagem saia de verdade ou fique em memoria.
 
-**n8n — bloqueado em infraestrutura.** Precisa do Docker Desktop no ar e, antes disso, do
-data root movido para outro disco: o C: desta maquina tem ~15 GB livres contra ~188 GB
-no D:. Enquanto isso nao acontecer, escrever o `docker-compose.yml` e o JSON do workflow
-seria produzir artefato que ninguem consegue executar nem validar.
+**n8n — concluido.** O Docker foi migrado para o D: antes de subir a stack (ED-067): C:
+passou de 14,7 GB para 28,7 GB livres, com as 14 imagens e os 11 volumes preservados.
 
-Quando desbloquear: webhook -> `/agents/run` -> decisao -> acao -> notificacao, com o JSON
-do workflow versionado em `workflows_n8n/`. O Hub e o cerebro; o n8n sao os bracos. Evitar
-que o n8n vire decorativo: ele precisa disparar E receber o resultado -- o que exige um
-callback de saida, hoje inexistente.
+- `docker-compose.yml` sobe o n8n com os dados em `data/n8n/`, fora do Git. A API continua
+  no host enquanto o projeto esta em desenvolvimento -- recarga automatica vale mais que a
+  simetria de ter tudo em container. No V7 a `api`, o `chromadb` e o `postgres` entram.
+- `app/integrations/callback.py` fecha o circuito: o Hub publica o resultado quando uma
+  execucao pausada e retomada. Sem isso o n8n dispararia e nunca saberia como terminou.
+- O callback **engole erro de rede** (ED-064) e dispara **apenas na retomada** (ED-065).
+- `workflows_n8n/aprovacao-de-acao.json`, versionado, com **dois triggers**: um recebe a
+  solicitacao, o outro recebe o resultado que chega horas depois.
 
 **Google Sheets e Notion — adiados por avaliacao de valor.** Cada um seria mais uma
 `Tool`, e o mecanismo que elas exercitariam (escopo, aprovacao, execucao, auditoria) ja
@@ -263,8 +265,9 @@ mesma camada de servico.
 trocar a URL e introduzir Alembic (ED-020) -- a convencao de nomes de constraint ja esta
 pronta para isso (ED-021).
 
-**Atencao de infraestrutura:** o disco de sistema desta maquina tem pouco espaco livre.
-Mover o data root do Docker Desktop para outro disco antes de subir a stack completa.
+**Infraestrutura ja resolvida no V4:** o Docker roda com o disco em
+`D:\Docker\DockerDesktopWSL` (ED-067), e o `docker-compose.yml` ja existe com o servico
+`n8n`. O V7 acrescenta `api`, `chromadb` e `postgres` ao mesmo arquivo.
 
 ### 7.2 CI (GitHub Actions)
 
@@ -296,6 +299,7 @@ para isso. Adicionar `gitleaks` para varredura de segredos.
 | `decided_by` e texto livre | `POST /approvals/{id}/*` | Consequencia de nao haver autenticacao. Com ela, o campo passa a vir da identidade do request. |
 | Falha do Slack e definitiva | `SlackNotifier.send` | Sem retry por decisao (ED-059). Uma fila com chave de idempotencia resolveria; nao ha fila. |
 | Destino do Slack nao e verificavel | `SLACK_DESTINATION` | Rotulo declarado a mao. O Slack nao expoe o canal do webhook, entao um valor errado passa despercebido. |
+| Callback sem reentrega | `WebhookPublisher` | Se o n8n estiver fora do ar, o resultado se perde. A execucao continua consultavel em `GET /executions/{id}`; uma fila resolveria, e nao ha fila. |
 | Sem autenticacao | API inteira | Fora do escopo por decisao. Se entrar, API key estatica em header basta. |
 | Metrica de custo e estimativa | `app/llm/pricing.py` | Tabela mantida a mao; a fatura do provedor e a fonte de verdade. |
 

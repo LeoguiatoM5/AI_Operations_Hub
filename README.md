@@ -30,7 +30,7 @@ qualquer acao de escrita em sistemas externos.
 | **V1** | FastAPI + camada multi-LLM + agente de triagem + persistencia + observabilidade | concluido |
 | **V2** | RAG com ChromaDB, ingestao de documentos, respostas com fontes citadas | concluido |
 | **V3** | LangGraph: quatro agentes, roteamento por plano, checkpointer persistente | concluido |
-| **V4** | Ferramentas com escopo, human-in-the-loop e integracao com Slack | em curso |
+| **V4** | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | planejado |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD e observabilidade completa | planejado |
@@ -126,6 +126,17 @@ Nao ha rota para executar uma ferramenta diretamente. Seria um atalho para dispa
 de escrita sem passar pela aprovacao -- e ha um teste afirmando que ela nao existe.
 
 Novos endpoints entram a cada versao do roadmap.
+
+### Automacao com n8n
+
+```powershell
+docker compose up -d      # n8n em http://localhost:5678
+```
+
+`workflows_n8n/aprovacao-de-acao.json` tem **dois triggers**, e a razao e o coracao do V4:
+uma execucao que pausa para aprovacao termina horas depois, quando ninguem esta mais
+segurando a resposta HTTP. O primeiro webhook dispara o Hub; o segundo recebe o resultado
+quando a pessoa decide. Instrucoes em [`workflows_n8n/README.md`](workflows_n8n/README.md).
 
 ### Exemplo
 

@@ -1013,3 +1013,95 @@ uma linha do nosso codigo tivesse mudado.
 
 **Licao.** Dependencia que o codigo de producao importa vai em `dependencies`, mesmo que
 ja esteja instalada. "Ja vem junto" nao e uma declaracao de dependencia.
+
+---
+
+## ED-064 — Callback de resultado: engolir o erro e o comportamento correto
+
+**Contexto.** Quem chama `POST /agents/run` recebe o resultado na resposta -- exceto
+quando o grafo pausa para aprovacao. Ai a resposta sai como `waiting_approval` e o
+resultado de verdade so existe depois que uma pessoa decidir, possivelmente horas depois,
+quando nenhum cliente HTTP esta mais esperando. Sem callback, o n8n seria decorativo:
+dispararia o Hub e nunca saberia como terminou.
+
+**Decisao.** `ResultPublisher.publish` **nunca levanta excecao**. Devolve um booleano que
+serve ao log e aos testes.
+
+**Motivo.** Quando o callback roda, a acao ja foi executada e a aprovacao ja esta gravada.
+Levantar excecao transformaria "o aviso nao chegou" em "a execucao falhou" -- mentira
+sobre um trabalho que deu certo, e que faria um painel de erros acusar problema em algo
+que funcionou.
+
+**Contraste deliberado com o ED-050.** La, `SlackNotifier.send` DEVE levantar: a acao
+aprovada nao aconteceu, e o silencio seria o pior desfecho possivel. A regra que unifica
+os dois: **falha na acao grita; falha no aviso sobre a acao, nao.**
+
+---
+
+## ED-065 — O callback dispara apenas na retomada
+
+**Decisao.** `WorkflowService.run` nao publica; `WorkflowService.resume` publica, e so
+quando a execucao de fato terminou (`aprovacao is None`).
+
+**Motivo.** Numa execucao sincrona o resultado ja saiu na resposta HTTP. Publicar tambem
+entregaria a mesma informacao duas vezes ao consumidor, que teria de deduplicar por conta
+propria -- trabalho que existe so porque nos criamos o problema.
+
+**Verificado por teste** (`test_a_synchronous_run_publishes_nothing`), porque a regressao
+seria silenciosa: tudo continuaria "funcionando", com o n8n processando cada resultado em
+dobro.
+
+**Detalhe do formato.** O corpo publicado e o `AgentRunResponse` serializado -- byte a byte
+igual ao da resposta da API. O consumidor entende um formato so, tenha a execucao
+terminado na resposta HTTP ou horas depois. Isso faz o servico importar um schema da
+camada de API: nao e vazamento, e a decisao de ter UMA representacao publica do resultado,
+seja qual for o transporte. E a mesma que o servidor MCP do V6 vai reaproveitar.
+
+---
+
+## ED-066 — A presenca da URL e o proprio seletor
+
+**Contexto.** `NOTIFIER` tem seletor (`memory` | `slack`). O callback nao tem.
+
+**Decisao.** Nao existe `RESULT_CALLBACK=none|webhook`. `RESULT_CALLBACK_URL` vazia
+desliga o callback.
+
+**Motivo.** Um seletor separado permitiria o estado invalido "webhook selecionado, URL
+ausente" -- que a configuracao aceitaria no startup e o runtime descobriria no pior
+momento. Aqui a ausencia de configuracao e, ela propria, uma configuracao valida.
+
+**Por que o `NOTIFIER` e diferente.** `memory` e `slack` sao duas escolhas legitimas, e
+nenhum campo distingue uma da outra sozinho: sem seletor, seria impossivel pedir
+explicitamente o notificador de memoria tendo uma URL de webhook no arquivo. A regra
+geral: seletor so quando existir mais de uma opcao valida que os proprios dados nao
+revelam.
+
+---
+
+## ED-067 — Docker no disco de dados, e o que o `--move` nao faz
+
+**Contexto.** O disco de sistema tinha 14,7 GB livres; o do projeto, 188 GB. O
+`customWslDistroDir` do Docker Desktop ja apontava para o D:, mas o `ext4.vhdx` de 14 GB
+continuava no C:.
+
+**A armadilha.** `customWslDistroDir` vale apenas para distros **novas**. As existentes
+permanecem registradas onde nasceram, e a configuracao na interface sugere o contrario.
+
+**O que aconteceu no `wsl --manage docker-desktop-data --move`.** Terminou com
+`E_ACCESSDENIED` depois de 3 minutos. Nao foi um no-op: o disco **ja tinha sido copiado
+para o destino e a origem apagada**, e o que faltou foi atualizar o `BasePath` no
+registro. A distro ficou apontando para uma pasta vazia -- um estado que nenhuma mensagem
+de erro descreve. Correcao: `Set-ItemProperty` no `BasePath` da chave em
+`HKCU:\...\Lxss\{guid}`.
+
+**Poda seletiva, nao `prune -a --volumes`.** O inventario antes de podar revelou volumes
+nomeados de outro projeto (`projeto_n8n_juridico_*`): o `--volumes` teria apagado
+workflows e banco por 290 MB de ganho. Podados apenas build cache e imagens sem tag: 5,3
+GB, com as 14 imagens com tag preservadas.
+
+**Sparse recusado.** `--set-sparse` exige `--allow-unsafe` porque a Microsoft desativou o
+recurso citando risco de corrupcao. Nao foi forcado: ~5 GB nao pagam esse risco num disco
+com 174 GB livres.
+
+**Licao.** Antes de qualquer operacao destrutiva, inventariar o que existe. O plano estava
+certo em intencao e errado em detalhe, e so o inventario mostrou isso a tempo.
