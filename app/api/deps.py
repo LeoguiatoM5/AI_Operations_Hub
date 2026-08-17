@@ -21,6 +21,8 @@ from app.core.exceptions import ConfigurationError
 from app.db.session import session_scope
 from app.integrations.callback import ResultPublisher
 from app.llm.base import LLMProvider
+from app.quality.engine import QualityEngine
+from app.quality.factory import build_quality_engine
 from app.rag.base import EmbeddingProvider, VectorStore
 from app.rag.retriever import Retriever
 from app.repositories.approval_repository import ApprovalRepository
@@ -200,6 +202,21 @@ def get_checkpointer(request: Request) -> BaseCheckpointSaver[str]:
 CheckpointerDep = Annotated[BaseCheckpointSaver[str], Depends(get_checkpointer)]
 
 
+def get_quality_engine(provider: LLMProviderDep, settings: SettingsDep) -> QualityEngine | None:
+    """Motor de qualidade, quando ligado.
+
+    `None` e o padrao e significa "ninguem mediu" -- que e diferente de "mediu e
+    aprovou". A distincao aparece na resposta da API: `quality: null` contra um objeto
+    com as notas.
+    """
+    if not settings.quality_enabled:
+        return None
+    return build_quality_engine(provider, threshold=settings.quality_threshold)
+
+
+QualityEngineDep = Annotated[QualityEngine | None, Depends(get_quality_engine)]
+
+
 def get_workflow_service(
     repository: ExecutionRepositoryDep,
     provider: LLMProviderDep,
@@ -208,9 +225,10 @@ def get_workflow_service(
     approvals: ApprovalRepositoryDep,
     checkpointer: CheckpointerDep,
     publisher: ResultPublisherDep,
+    quality: QualityEngineDep,
 ) -> WorkflowService:
     return WorkflowService(
-        repository, provider, retriever, tools, approvals, checkpointer, publisher
+        repository, provider, retriever, tools, approvals, checkpointer, publisher, quality
     )
 
 

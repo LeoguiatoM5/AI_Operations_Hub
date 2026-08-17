@@ -1105,3 +1105,96 @@ com 174 GB livres.
 
 **Licao.** Antes de qualquer operacao destrutiva, inventariar o que existe. O plano estava
 certo em intencao e errado em detalhe, e so o inventario mostrou isso a tempo.
+
+---
+
+## ED-068 — O portao de qualidade e um no do grafo, com ciclo
+
+**Contexto.** A avaliacao poderia rodar no `WorkflowService`, depois do `ainvoke`. Seria
+mais simples: nenhum no novo, nenhum ciclo.
+
+**Decisao.** `quality` e um no, e `reporter -> quality -> reporter` e o unico ciclo do
+grafo.
+
+**Motivo.** O retry dirigido precisa reexecutar o relatorio, e reexecutar um no e o que um
+grafo faz. Fora dele, seria preciso chamar o agente de relatorio a mao, remontar o
+material, regravar o passo -- reimplementando meia orquestracao ao lado da orquestracao.
+
+**Por que so o relatorio volta.** A reprovacao quase sempre e da sintese, nao do material
+apurado. Reexecutar pesquisa e analise custaria muito mais e raramente mudaria a nota --
+se o problema estiver no material, duas reescritas nao resolvem, e ai o caso e de revisao
+humana.
+
+**O limite vive no roteador**, e nao numa configuracao do LangGraph: assim
+`MAX_REPORT_ATTEMPTS` e testavel como funcao pura, sem executar agente nenhum.
+
+---
+
+## ED-069 — Portao desligado por padrao
+
+**Decisao.** `QUALITY_ENABLED=false`.
+
+**Dois motivos, e cada um bastaria.**
+
+1. **Custo.** Sao tres a quatro chamadas de LLM por execucao -- o portao praticamente
+   dobra a conta. Liga-lo por padrao cobraria isso de quem clonou o repositorio sem pedir.
+2. **Os limites nao foram medidos.** `threshold=0.7` e os pesos por dimensao sao valores
+   arbitrados. Reprovar respostas reais com base neles e pior que nao avaliar: produz
+   recusa sem fundamento, e o time desliga o portao na primeira semana. A calibracao sai
+   do conjunto de avaliacao (V5.4).
+
+**Modo de observacao, sem configuracao nova.** `QUALITY_ENABLED=true` com
+`QUALITY_THRESHOLD=0.0`: tudo passa, todas as notas sao gravadas, e da para acumular
+medicao antes de ligar o portao de verdade. E o rollout em sombra, e ele sai de graca
+porque o limite ja e um parametro.
+
+---
+
+## ED-070 — Reprovado no portao nao e `failed`
+
+**Decisao.** Uma execucao que reprova duas vezes termina em `NEEDS_HUMAN_REVIEW`, com a
+resposta entregue.
+
+**Motivo.** O trabalho foi feito e o resultado existe; o que se sabe e que ele nao passou
+na avaliacao. Marcar como `failed` esconderia a resposta de quem poderia julga-la, e
+reter a resposta seria pior ainda: quem pediu fica sem nada e o material apurado -- que
+custou tokens -- se perde.
+
+**O estado proprio e o ponto.** E ele que permite alguem consultar "o que precisa de
+revisao?" sem varrer execucoes bem-sucedidas. O enum ja previa esse estado desde o V1.
+
+---
+
+## ED-071 — O portao nao se mede
+
+**Decisao.** Os passos do agente `quality` sao excluidos do subject que alimenta
+`api_reliability`.
+
+**Motivo.** Medir a saude da execucao incluindo o medidor seria contar a si mesmo: um
+retry do proprio juiz derrubaria a nota de confiabilidade do sistema avaliado, misturando
+o que se quer medir com o instrumento.
+
+**Como apareceu.** Nao apareceu -- foi previsto ao escrever o no. O sintoma seria sutil:
+notas de confiabilidade piores nas execucoes avaliadas do que nas nao avaliadas, sem
+nenhuma mudanca no sistema.
+
+---
+
+## ED-072 — O atalho de grounding se provou no fluxo real
+
+**Contexto.** `GroundingDimension` decide tres casos sem chamar o LLM (ED anterior sobre
+o motor). Um deles: resposta que nao deriva da base de conhecimento.
+
+**Como foi confirmado.** Escrevendo o teste de ponta a ponta do portao, o roteiro do
+provider falso previa quatro juizes. O teste falhou com 12 chamadas contra 11 esperadas, e
+o log mostrou um `RelevanceVerdict` recebendo a resposta destinada ao grounding.
+
+**Causa.** A tarefa do teste analisa dados fornecidos pelo usuario: nao ha pesquisa,
+`source_based` e falso, e o atalho disparou. So tres juizes rodaram.
+
+**Resultado.** O teste passou a afirmar tres, e virou prova de que a economia acontece no
+fluxo real -- e nao apenas no teste unitario da dimensao isolada.
+
+**Licao.** Um teste de integracao que conta chamadas pagas detecta otimizacao que
+funciona **e** otimizacao que deixou de funcionar. O numero 10 naquele assert e uma
+afirmacao sobre a conta do fim do mes.

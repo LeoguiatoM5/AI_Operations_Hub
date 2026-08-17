@@ -58,6 +58,12 @@ class AgentRunResponse(BaseModel):
     analysis: dict[str, Any] | None = None
     automation: dict[str, Any] | None = None
     report: dict[str, Any] | None = None
+    #: Avaliacao do portao de qualidade, quando ligado. `None` significa que ninguem
+    #: mediu -- e diferente de ter medido e aprovado.
+    quality: dict[str, Any] | None = Field(
+        default=None,
+        description="Nota por dimensao e veredito. Ausente quando o portao esta desligado.",
+    )
 
     #: Presente quando `status` e `waiting_approval`. Sem isto, o cliente receberia uma
     #: execucao parada e nenhuma indicacao de como faze-la seguir.
@@ -94,6 +100,7 @@ class AgentRunResponse(BaseModel):
             analysis=state.get("analysis"),
             automation=state.get("automation"),
             report=state.get("report"),
+            quality=state.get("quality"),
             pending_approval=ApprovalResponse.from_model(approval) if approval else None,
             usage=UsageSummary(
                 prompt_tokens=execution.total_prompt_tokens,

@@ -25,6 +25,9 @@ from app.core.exceptions import AIHubError
 from app.core.logging import get_logger
 from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
+from app.quality.base import StepFacts
+from app.quality.engine import QualityEngine
+from app.quality.subject import subject_from_report
 from app.rag.retriever import Retriever
 from app.repositories.execution_repository import ExecutionRepository
 from app.tools.registry import ToolRegistry
@@ -62,6 +65,7 @@ class WorkflowNodes:
         reporter: ReporterAgent,
         retriever: Retriever,
         tools: ToolRegistry,
+        quality: QualityEngine | None = None,
     ) -> None:
         self._execution = execution
         self._repository = repository
@@ -72,6 +76,7 @@ class WorkflowNodes:
         self._reporter = reporter
         self._retriever = retriever
         self._tools = tools
+        self._quality = quality
 
     # ------------------------------------------------------------------ orquestrador
 
@@ -329,8 +334,14 @@ class WorkflowNodes:
     # ------------------------------------------------------------------ relatorio
 
     async def reporter(self, state: WorkflowState) -> dict[str, Any]:
-        """Consolida tudo em um relatorio, inclusive o que falhou."""
-        material = {
+        """Consolida tudo em um relatorio, inclusive o que falhou.
+
+        Roda mais de uma vez quando o portao de qualidade reprova: a segunda passagem
+        recebe o motivo exato da reprovacao no material. E o mesmo retry dirigido do
+        ED-023, um nivel acima -- la o modelo recebia o erro de validacao de schema, aqui
+        recebe o que a avaliacao considerou mal fundamentado ou incompleto.
+        """
+        material: dict[str, Any] = {
             "solicitacao": state["request_text"],
             "plano": state.get("plan"),
             "pesquisa": state.get("research"),
@@ -339,6 +350,13 @@ class WorkflowNodes:
             "agentes_com_falha": state.get("errors", []),
             "agentes_nao_executados": state.get("skipped_agents", []),
         }
+
+        feedback = state.get("quality_feedback", "")
+        if feedback:
+            material["reprovacao_da_versao_anterior"] = (
+                "A versao anterior deste relatorio foi reprovada na avaliacao de "
+                f"qualidade pelos motivos abaixo. Corrija-os:\n{feedback}"
+            )
 
         try:
             outcome = await self._reporter.run(state["request_text"], material)
@@ -351,6 +369,68 @@ class WorkflowNodes:
 
         await self._record(outcome, agent="reporter", action=outcome.action)
         return {"report": outcome.payload.model_dump(), "completed": ["reporter"]}
+
+    # ------------------------------------------------------------------ qualidade
+
+    async def quality(self, state: WorkflowState) -> dict[str, Any]:
+        """Avalia o relatorio antes de entrega-lo.
+
+        Sem motor configurado, o no e um passa-nada: devolve o estado intocado, sem
+        gravar passo nem gastar token. E o caminho padrao do projeto -- o portao so liga
+        quando alguem pede, porque ele custa quatro chamadas de LLM por execucao.
+        """
+        if self._quality is None:
+            return {}
+
+        tentativa = state.get("quality_attempts", 0) + 1
+        passos = await self._repository.list_steps(self._execution.id)
+
+        subject = subject_from_report(
+            task=state["request_text"],
+            report=state.get("report"),
+            research=state.get("research"),
+            steps=[
+                StepFacts(
+                    agent=passo.agent,
+                    action=passo.action,
+                    succeeded=passo.status == ExecutionStatus.COMPLETED,
+                    attempts=passo.attempts,
+                    error_code=passo.error_code,
+                )
+                for passo in passos
+                # O proprio portao nao entra na conta de confiabilidade: medir a saude da
+                # execucao incluindo o medidor seria contar a si mesmo.
+                if passo.agent != "quality"
+            ],
+        )
+
+        report = await self._quality.evaluate(subject)
+
+        await self._repository.add_agent_step(
+            self._execution,
+            agent="quality",
+            action="evaluate",
+            status=ExecutionStatus.COMPLETED,
+            output_data=report.model_dump(mode="json"),
+            cost_usd=report.cost_usd,
+            attempts=tentativa,
+        )
+        logger.info(
+            "quality_gate",
+            execution_id=state["execution_id"],
+            attempt=tentativa,
+            score=report.score,
+            passed=report.passed,
+            cost_usd=report.cost_usd,
+        )
+
+        return {
+            "quality": report.model_dump(mode="json"),
+            "quality_attempts": tentativa,
+            # O feedback so faz sentido se houver outra tentativa; quando nao houver, o
+            # roteador ignora. Escrever aqui mantem o no puro em relacao a decisao.
+            "quality_feedback": report.feedback(),
+        }
 
     # ------------------------------------------------------------------ apoio
 

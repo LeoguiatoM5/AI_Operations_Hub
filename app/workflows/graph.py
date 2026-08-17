@@ -43,6 +43,13 @@ AUTOMATION = "automation"
 AUTOMATION_PLAN = "automation_plan"
 AUTOMATION_RUN = "automation_run"
 REPORTER = "reporter"
+QUALITY = "quality"
+
+#: Quantas vezes o relatorio pode ser escrito. Dois significa: a original e uma correcao
+#: dirigida pelo motivo da reprovacao. A terceira raramente muda o desfecho e dobra o
+#: custo de novo -- se duas passagens nao resolveram, o problema costuma estar no material
+#: apurado, e nao na redacao, e ai quem precisa olhar e uma pessoa.
+MAX_REPORT_ATTEMPTS = 2
 
 #: Agente na fila -> no que o executa. Quase sempre o mesmo nome; a automacao e a
 #: excecao, porque um agente pode ocupar mais de um no.
@@ -71,6 +78,33 @@ def route_next(state: WorkflowState) -> str:
     return REPORTER
 
 
+def route_after_quality(state: WorkflowState) -> str:
+    """Decide se o relatorio volta para correcao ou se a execucao termina.
+
+    Funcao pura, como `route_next`: da para percorrer os quatro desfechos do portao sem
+    provider nenhum e em milissegundos.
+
+    Os tres motivos de terminar sao diferentes entre si, e vale distingui-los:
+
+    - **sem avaliacao** -- o portao esta desligado, nao ha o que decidir;
+    - **aprovado** -- o relatorio passou;
+    - **tentativas esgotadas** -- reprovou de novo. A execucao termina assim mesmo, e o
+      servico a marca como `needs_human_review`. Reter a resposta seria pior: quem pediu
+      fica sem nada, e o material apurado -- que custou tokens -- se perde.
+    """
+    avaliacao = state.get("quality")
+    if not avaliacao:
+        return END
+
+    if avaliacao.get("passed"):
+        return END
+
+    if state.get("quality_attempts", 0) >= MAX_REPORT_ATTEMPTS:
+        return END
+
+    return REPORTER
+
+
 def build_graph(
     nodes: WorkflowNodes, checkpointer: BaseCheckpointSaver[str] | None = None
 ) -> CompiledStateGraph[WorkflowState, None, WorkflowState, WorkflowState]:
@@ -90,6 +124,7 @@ def build_graph(
     builder.add_node(AUTOMATION_PLAN, nodes.automation_plan)
     builder.add_node(AUTOMATION_RUN, nodes.automation_run)
     builder.add_node(REPORTER, nodes.reporter)
+    builder.add_node(QUALITY, nodes.quality)
 
     builder.add_edge(START, ORCHESTRATOR)
 
@@ -114,6 +149,12 @@ def build_graph(
     # execucao -- e e entre os dois que o checkpoint da pausa e gravado.
     builder.add_edge(AUTOMATION_PLAN, AUTOMATION_RUN)
 
-    builder.add_edge(REPORTER, END)
+    # O unico ciclo do grafo: reporter -> quality -> reporter. Ele existe porque corrigir
+    # a redacao e barato perto de reexecutar pesquisa e analise -- e porque a reprovacao
+    # quase sempre e da sintese, nao do material. O limite vive no roteador
+    # (`MAX_REPORT_ATTEMPTS`), e nao numa configuracao do LangGraph: assim ele e
+    # inspecionavel por teste, sem executar agente nenhum.
+    builder.add_edge(REPORTER, QUALITY)
+    builder.add_conditional_edges(QUALITY, route_after_quality, {REPORTER: REPORTER, END: END})
 
     return builder.compile(checkpointer=checkpointer)

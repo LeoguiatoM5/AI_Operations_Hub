@@ -114,6 +114,20 @@ class Settings(BaseSettings):
     slack_destination: str = Field(default="slack", min_length=1, max_length=64)
     notifier_timeout_seconds: float = Field(default=10.0, gt=0)
 
+    # portao de qualidade
+    #: Desligado por padrao, por dois motivos independentes -- e cada um bastaria.
+    #:
+    #: 1. **Custo.** O portao roda quatro chamadas de LLM por execucao. Liga-lo por
+    #:    padrao dobraria a conta de quem clona o repositorio sem ter pedido nada.
+    #: 2. **Os limites ainda nao foram medidos.** Reprovar respostas reais com base em
+    #:    numeros arbitrados e pior que nao avaliar: produz recusa sem fundamento. A
+    #:    calibracao sai do conjunto de avaliacao (V5.4).
+    #:
+    #: Para observar sem reprovar, ligue com `QUALITY_THRESHOLD=0.0`: tudo passa, as notas
+    #: sao gravadas, e da para acumular medicao antes de ligar o portao de verdade.
+    quality_enabled: bool = False
+    quality_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+
     # callback de resultado
     #: Para onde enviar o resultado de uma execucao que foi retomada apos aprovacao
     #: humana. Vazio desliga o callback -- a presenca da URL e o proprio seletor.

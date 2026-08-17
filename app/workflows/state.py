@@ -73,6 +73,18 @@ class WorkflowState(TypedDict):
     errors: Annotated[list[AgentError], operator.add]
     completed: Annotated[list[str], operator.add]
 
+    # --- portao de qualidade (V5)
+    #: Relatorio da ultima avaliacao. Sobrescrito a cada tentativa: o que importa e a
+    #: nota da versao que sera entregue, nao o historico das reprovadas -- que fica nos
+    #: passos gravados em `agent_executions`.
+    quality: NotRequired[dict[str, Any] | None]
+    #: Quantas vezes o relatorio ja foi avaliado. E o que impede o laco
+    #: reporter -> quality -> reporter de girar para sempre.
+    quality_attempts: NotRequired[int]
+    #: O motivo da reprovacao, escrito para o proprio modelo ler na proxima tentativa.
+    #: Vazio na primeira passagem.
+    quality_feedback: NotRequired[str]
+
     #: Falha que impede o grafo de continuar (o plano nao pode ser produzido).
     fatal: NotRequired[bool]
 

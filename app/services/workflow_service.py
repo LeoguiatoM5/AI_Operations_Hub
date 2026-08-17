@@ -34,6 +34,7 @@ from app.llm.base import LLMProvider
 from app.models.approval import Approval
 from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
+from app.quality.engine import QualityEngine
 from app.rag.retriever import Retriever
 from app.repositories.approval_repository import ApprovalRepository
 from app.repositories.execution_repository import ExecutionRepository
@@ -72,6 +73,7 @@ class WorkflowService:
         approvals: ApprovalRepository,
         checkpointer: BaseCheckpointSaver[str] | None = None,
         publisher: ResultPublisher | None = None,
+        quality: QualityEngine | None = None,
     ) -> None:
         self._repository = repository
         self._provider = provider
@@ -80,6 +82,7 @@ class WorkflowService:
         self._approvals = approvals
         self._checkpointer = checkpointer
         self._publisher = publisher or NullPublisher()
+        self._quality = quality
 
     # ------------------------------------------------------------------ execucao
 
@@ -171,6 +174,7 @@ class WorkflowService:
             reporter=ReporterAgent(self._provider),
             retriever=self._retriever,
             tools=self._tools,
+            quality=self._quality,
         )
         return build_graph(nodes, self._checkpointer)
 
@@ -243,15 +247,25 @@ class WorkflowService:
                 error_message=str(primeiro.get("message")),
             )
         else:
+            avaliacao = state.get("quality") or {}
+            reprovado = bool(avaliacao) and not avaliacao.get("passed", True)
             await self._repository.mark_finished(
                 execution,
-                status=ExecutionStatus.COMPLETED,
+                # Reprovado no portao NAO vira `failed`: o trabalho foi feito, o resultado
+                # esta ali, e o que se sabe e que ele nao passou na avaliacao. Marcar como
+                # falha esconderia a resposta de quem poderia julga-la, e um estado
+                # proprio e justamente o que permite alguem procurar por esses casos.
+                status=(
+                    ExecutionStatus.NEEDS_HUMAN_REVIEW if reprovado else ExecutionStatus.COMPLETED
+                ),
+                quality_score=avaliacao.get("score"),
                 result={
                     "plan": state.get("plan"),
                     "research": state.get("research"),
                     "analysis": state.get("analysis"),
                     "automation": state.get("automation"),
                     "report": state.get("report"),
+                    "quality": avaliacao or None,
                     "errors": erros,
                     "skipped_agents": state.get("skipped_agents", []),
                 },
@@ -264,6 +278,7 @@ class WorkflowService:
             status=execution.status,
             agents=state.get("completed", []),
             errors=len(erros),
+            quality_score=execution.quality_score,
             cost_usd=execution.total_cost_usd,
             duration_ms=execution.duration_ms,
         )
