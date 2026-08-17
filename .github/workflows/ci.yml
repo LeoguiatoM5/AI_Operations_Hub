@@ -1,0 +1,164 @@
+# Integracao continua.
+#
+# **A CI nao tem nenhum segredo, e isso e um requisito de projeto, nao uma limitacao.**
+# O provider `fake` existe desde o V1 exatamente para isto: a suite inteira e o conjunto
+# de avaliacao rodam sem chave de API, sem rede e sem custo. Uma CI que depende de segredo
+# nao roda em pull request de fora do repositorio -- e e justamente ai que a verificacao
+# mais importa.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Um push novo cancela a execucao anterior do mesmo branch: em fila, o resultado que
+# interessa e o do ultimo commit.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.12"
+
+jobs:
+  quality:
+    name: Lint, tipos e testes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -e ".[dev]"
+
+      # Os quatro passos rodam com `if: always()` para que um pull request receba TODOS os
+      # problemas de uma vez. Parar no primeiro obrigaria a uma segunda rodada para
+      # descobrir o segundo -- e o tempo de espera dobra sem ganho nenhum.
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format
+        if: always()
+        run: ruff format --check .
+
+      - name: mypy
+        if: always()
+        run: mypy app mcp_server run_evals.py
+
+      - name: pytest
+        if: always()
+        run: pytest --cov --cov-report=term-missing
+
+  evals:
+    name: Conjunto de avaliacao
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -e ".[dev]"
+
+      # `--smoke`, e nao a avaliacao completa. A distincao e deliberada e importa:
+      #
+      # com provider deterministico o sistema nao ENTENDE as perguntas -- nao tem como
+      # saber quando recusar nem o que citar. Cobrar as assercoes semanticas de um
+      # substituto reprovaria sempre, e o passo viraria ruido que todo mundo ignora.
+      #
+      # O que este passo verifica e real: que os 16 casos atravessam ingestao,
+      # recuperacao, chamada estruturada e avaliacao sem quebrar. Regressao de
+      # encanamento -- schema incompativel, contrato mudado, excecao nova -- aparece aqui.
+      # A medicao de qualidade exige modelo de verdade e roda a mao (docs/roadmap.md 5.3).
+      - name: Smoke do conjunto de avaliacao
+        env:
+          LLM_PROVIDER: fake
+          EMBEDDING_PROVIDER: fake
+          VECTOR_STORE: memory
+        run: python run_evals.py --smoke
+
+      - name: Guardar o relatorio
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: evals/reports/
+          retention-days: 30
+
+  security:
+    name: Seguranca
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # O gitleaks precisa do historico para varrer commits antigos: uma chave
+          # vazada e depois removida do arquivo continua no historico, e e la que
+          # alguem a encontraria.
+          fetch-depth: 0
+
+      - name: Varredura de segredos
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  image:
+    name: Imagem Docker
+    runs-on: ubuntu-latest
+    # Construir a imagem so faz sentido se o codigo passou -- e o build e o passo mais
+    # lento do pipeline.
+    needs: quality
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: aiops-api:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Construir nao prova que sobe. Este passo prova: o container atende o /health.
+      - name: A imagem sobe e responde
+        run: |
+          docker run -d --name aiops-ci -p 8000:8000 \
+            -e LLM_PROVIDER=fake -e EMBEDDING_PROVIDER=fake \
+            aiops-api:ci
+          for tentativa in $(seq 1 30); do
+            if curl -sf http://localhost:8000/health > /dev/null; then
+              echo "no ar apos ${tentativa}s"
+              curl -s http://localhost:8000/health
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "a imagem nao respondeu em 30s"
+          docker logs aiops-ci
+          exit 1
+
+      - name: Vulnerabilidades da imagem
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: aiops-api:ci
+          format: table
+          severity: CRITICAL,HIGH
+          # Nao quebra o build: as CVEs criticas conhecidas hoje nao tem correcao
+          # publicada (ver docs/security.md), e um passo que falha sempre e um passo que
+          # todo mundo aprende a ignorar. O relatorio fica no log para revisao.
+          exit-code: "0"

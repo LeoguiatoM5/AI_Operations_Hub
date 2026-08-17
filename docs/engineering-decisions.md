@@ -1448,3 +1448,91 @@ resolveria a corrupcao e criaria um servidor impossivel de depurar.
 **Modo de falha se ignorado.** Um `print` ou um log em stdout corrompe uma mensagem do
 protocolo. O sintoma nao e um erro claro: e o cliente desconectando ou ignorando a
 resposta, sem explicacao util.
+
+---
+
+## ED-084 — Imagem: codigo de root, processo sem privilegio
+
+**Decisao.** No estagio final, o codigo e copiado como **root** e o processo roda como
+`aiops` (uid 1000). So `data/` pertence ao usuario da aplicacao.
+
+**Motivo.** A tentacao e `COPY --chown=aiops` -- parece mais arrumado. Mas dar ao processo
+a posse do proprio codigo significa que quem obtiver execucao dentro do container consegue
+**reescrever o programa** e persistir a alteracao. Codigo de root, processo sem
+privilegio: a aplicacao le o que executa e nao consegue altera-lo.
+
+O multi-estagio segue a mesma logica: o compilador fica no estagio de build. Ferramenta de
+compilacao numa imagem de producao e ferramenta a disposicao de um invasor.
+
+---
+
+## ED-085 — SQLite quebra em bind mount do Windows: volume nomeado
+
+**Como apareceu.** A stack subiu e o container da API morreu no startup com
+`sqlite3.OperationalError: disk I/O error`, na criacao do banco de checkpoints. O banco da
+aplicacao havia sido criado com sucesso na linha anterior -- o erro nao acusava a causa.
+
+**Causa.** `./data:/app/data` atravessa a camada de traducao de sistema de arquivos do
+Docker Desktop no Windows, que nao entrega as garantias de bloqueio que o SQLite exige.
+
+**Decisao.** A API usa **volume nomeado**; o n8n mantem bind mount.
+
+**Por que a assimetria.** O n8n grava seu proprio SQLite sem sofrer, e manter os dados
+dele visiveis no host permite exportar um workflow editado na interface direto para
+`workflows_n8n/`. Uniformizar por estetica custaria essa conveniencia sem ganho.
+
+**Preco aceito.** Os dados da API deixam de aparecer no Explorer. O comando de inspecao
+esta comentado no proprio `docker-compose.yml`.
+
+---
+
+## ED-086 — Na CI, o conjunto de avaliacao roda em modo smoke
+
+**O buraco que a CI revelou.** O plano era rodar `run_evals.py` com provider
+deterministico -- afinal, o provider `fake` existe desde o V1 para a CI nao depender de
+segredo. A primeira execucao deu **0 de 16**, todos com `llm_response_format_error`.
+
+**Causa.** O `FakeLLMProvider` devolvia sempre o mesmo JSON, que nao satisfaz schema
+nenhum. Bastava para a suite -- que roteiriza cada resposta -- e escondia que
+`LLM_PROVIDER=fake` subia a aplicacao sem conseguir exercita-la.
+
+**Primeira correcao (ED-087).** O provider passou a derivar a resposta do schema que o
+proprio prompt carrega. Resultado: 7 de 16.
+
+**A segunda descoberta e a que importa.** Os 9 restantes nunca vao passar, e nao ha
+correcao possivel: o provider falso **nao entende as perguntas**. Ele nao tem como saber
+quando recusar nem o que citar. Exigir as assercoes semanticas de um substituto e medir
+compreensao num boneco -- o passo reprovaria sempre, e viraria ruido que todo mundo
+aprende a ignorar.
+
+**Decisao.** `run_evals.py --smoke`: aprova se nenhum caso **quebrou**, ignorando as
+assercoes semanticas. E o que a CI roda.
+
+O que isso verifica e real: que os 16 casos atravessam ingestao, recuperacao, chamada
+estruturada e avaliacao sem excecao. Regressao de encanamento -- schema incompativel,
+contrato mudado -- aparece ali. Medicao de qualidade exige modelo de verdade e roda a mao.
+
+**Licao.** Um passo de CI que nao pode passar e pior que passo nenhum. Separar "o fluxo
+roda" de "a resposta e boa" foi o que tornou o passo honesto -- e o nome `--smoke` diz ao
+proximo leitor exatamente o que ele garante.
+
+---
+
+## ED-087 — O provider falso deriva a resposta do schema do prompt
+
+**Decisao.** `FakeLLMProvider` procura o JSON Schema que os agentes ja embutem no prompt
+(`dump_schema`) e sintetiza uma instancia valida. Sem schema, mantem o formato antigo.
+
+**Motivo.** Sem isso, `LLM_PROVIDER=fake` era util apenas para subir a aplicacao e para
+testes com roteiro. Qualquer fluxo real -- `run_evals.py`, um `POST /rag/query` manual em
+um clone sem chave -- morria em `llm_response_format_error`.
+
+**O que o gerador precisou saber alem dos tipos.** Os schemas deste projeto tem validadores
+de coerencia em Python que o JSON Schema nao expressa (ED-028). Tres heuristicas resolvem:
+
+- `requires_approval` gerado como `false` -- `true` exigiria `automation` no plano;
+- confianca em 0.5 -- alta reprovaria em `AnalysisResult.high_confidence_requires_findings`;
+- toda lista com um item -- vazia reprovaria o relatorio sem limitacoes declaradas.
+
+**Coberto por teste que percorre todos os oito schemas do projeto**, incluindo os quatro
+juizes de qualidade. Um schema novo com validador de coerencia nasce coberto.

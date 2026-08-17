@@ -1,20 +1,75 @@
-# Stack local de integracao.
+# Stack local completa: a API e o n8n.
 #
-# Hoje sobe apenas o n8n. A API continua rodando no host (`uvicorn --reload`), e isso e
-# deliberado enquanto o projeto esta em desenvolvimento: recarga automatica a cada edicao
-# vale mais que a simetria de ter tudo em container. No V7 a `api`, o `chromadb` e o
-# `postgres` entram aqui e o arranjo passa a ser o mesmo em dev e em producao.
+#   docker compose up -d --build     sobe tudo
+#   docker compose logs -f api       acompanha
+#   docker compose down              derruba, preservando os dados
 #
-#   docker compose up -d      sobe o n8n em http://localhost:5678
-#   docker compose logs -f    acompanha
-#   docker compose down       derruba, preservando os dados
+# Os dados ficam em ./data -- dentro do projeto, que vive no D:, e fora do Git.
 #
-# Os dados ficam em ./data/n8n -- dentro do projeto, que vive no D:, e fora do Git
-# (`data/` esta no .gitignore). Bind mount em vez de volume nomeado de proposito: os
-# workflows que voce criar na interface ficam visiveis no sistema de arquivos, o que
-# permite versionar o JSON exportado sem entrar no container.
+# **Por que nao ha servico `chromadb`.** O roadmap previa um, e a decisao mudou com o
+# codigo na frente: `ChromaVectorStore` usa o cliente EMBUTIDO (`PersistentClient`), que
+# le e escreve um diretorio. Subir o Chroma como servico exigiria implementar o modo HTTP,
+# e o ganho seria negativo para uma instancia unica -- acrescentaria uma porta de rede a
+# uma dependencia que hoje tem uma CVE critica sem correcao (ver docs/security.md). O
+# Protocol `VectorStore` mantem a porta aberta para quando houver mais de uma instancia.
+#
+# **Por que nao ha `postgres`.** Trocar SQLite por PostgreSQL exige Alembic (ED-020), que
+# e trabalho proprio e nao acessorio. Registrado como pendencia no roadmap em vez de
+# entregue pela metade.
 
 services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: aiops-api:local
+    container_name: aiops-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: local
+      # Sem chave, o projeto sobe inteiro com provider deterministico -- e o que permite
+      # `docker compose up` funcionar num clone limpo, sem configurar nada.
+      LLM_PROVIDER: ${LLM_PROVIDER:-fake}
+      EMBEDDING_PROVIDER: ${EMBEDDING_PROVIDER:-fake}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      VECTOR_STORE: chroma
+      CHROMA_PATH: /app/data/chroma
+      DATABASE_URL: sqlite+aiosqlite:////app/data/app.db
+      CHECKPOINT_PATH: /app/data/checkpoints.db
+      NOTIFIER: ${NOTIFIER:-memory}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      QUALITY_ENABLED: ${QUALITY_ENABLED:-false}
+      # Dentro da rede do compose os servicos se enxergam pelo nome; `localhost` apontaria
+      # para o proprio container da API.
+      RESULT_CALLBACK_URL: ${RESULT_CALLBACK_URL:-http://n8n:5678/webhook/hub/resultado}
+      LOG_FORMAT: json
+    volumes:
+      # Volume NOMEADO, e nao bind mount -- e a diferenca entre subir e nao subir.
+      #
+      # Com `./data:/app/data`, o SQLite quebra: `disk I/O error` ao criar o banco de
+      # checkpoints. O bind mount do Docker Desktop no Windows atravessa uma camada de
+      # traducao que nao entrega as garantias de bloqueio de arquivo que o SQLite exige --
+      # e o sintoma nao acusa a causa.
+      #
+      # O preco e que os arquivos deixam de aparecer no Explorer. Para inspecionar:
+      #   docker compose exec api ls -la /app/data
+      #   docker run --rm -v ai_operations_hub_aiops-data:/d alpine ls -la /d
+      - aiops-data:/app/data
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - |
+          import urllib.request, sys
+          sys.exit(0 if urllib.request.urlopen("http://localhost:8000/health", timeout=4).status == 200 else 1)
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
   n8n:
     image: n8nio/n8n:latest
     container_name: aiops-n8n
@@ -37,11 +92,15 @@ services:
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_RUNNERS_ENABLED: "true"
     volumes:
+      # Bind mount aqui, e nao volume nomeado -- assimetria deliberada. O n8n grava seu
+      # SQLite sem sofrer com o bind mount, e manter os dados visiveis no host permite
+      # exportar um workflow editado na interface para `workflows_n8n/` sem entrar no
+      # container. Se este servico passar a apresentar erro de I/O, a solucao e a mesma
+      # da API.
       - ./data/n8n:/home/node/.n8n
     extra_hosts:
-      # Como o n8n alcanca a API rodando no host. No Docker Desktop isso ja existe por
-      # padrao; declarar explicitamente mantem o arquivo valido tambem no Docker de
-      # Linux, onde nao existe.
+      # Como o n8n alcanca algo rodando no HOST (uvicorn em desenvolvimento). Para falar
+      # com a API do compose, use `http://api:8000`.
       - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
@@ -49,3 +108,8 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
+
+volumes:
+  # Dados da API (banco, checkpoints, indice do Chroma). Gerenciado pelo Docker, dentro do
+  # sistema de arquivos da VM -- que e onde o SQLite funciona.
+  aiops-data:

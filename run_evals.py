@@ -66,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         help="Roda apenas os casos indicados. Pode repetir.",
     )
     parser.add_argument(
+        "--smoke",
+        action="store_true",
+        help="So verifica que o fluxo roda: aprova se nenhum caso quebrou, ignorando as "
+        "assercoes semanticas. E o modo da CI, com provider deterministico.",
+    )
+    parser.add_argument(
         "--out",
         type=Path,
         default=REPORTS,
@@ -187,8 +193,25 @@ async def main() -> int:
     )
     print(f"Relatorio: {destino_md}")
 
-    # Codigo de saida diferente de zero quando ha reprovacao: e o que permite a CI
-    # quebrar o build por queda de qualidade, e nao apenas registrar o numero.
+    if args.smoke:
+        # **Por que a CI nao pode exigir as assercoes semanticas.** Com provider
+        # deterministico, o sistema nao entende as perguntas: ele nao tem como saber
+        # quando recusar nem o que citar. Cobrar isso de um substituto seria medir
+        # compreensao num boneco -- o resultado seria sempre reprovado, e o passo viraria
+        # ruido que todo mundo aprende a ignorar.
+        #
+        # O que este modo verifica e real e vale o passo: que os 16 casos atravessam
+        # ingestao, recuperacao, chamada estruturada e avaliacao **sem quebrar**. Uma
+        # regressao de encanamento -- schema incompativel, contrato mudado, excecao nova --
+        # aparece aqui. A medicao de qualidade exige modelo de verdade, e roda a mao.
+        quebrados = [caso for caso in relatorio.cases if caso.error]
+        for caso in quebrados:
+            print(f"  QUEBROU {caso.case_id}: {caso.error}")
+        print(f"\nmodo smoke: {relatorio.total - len(quebrados)}/{relatorio.total} sem erro")
+        return 1 if quebrados else 0
+
+    # Codigo de saida diferente de zero quando ha reprovacao: e o que permite quebrar um
+    # build por queda de qualidade, e nao apenas registrar o numero.
     return 0 if len(relatorio.passed) == relatorio.total else 1
 
 

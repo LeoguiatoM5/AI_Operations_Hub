@@ -15,6 +15,7 @@ from collections.abc import Sequence
 
 from app.core.logging import get_logger
 from app.llm.base import LLMMessage, LLMResponse, TokenUsage
+from app.llm.fake_schema import extract_schema, instance_for
 from app.llm.pricing import estimate_cost_usd
 
 logger = get_logger(__name__)
@@ -79,9 +80,30 @@ class FakeLLMProvider:
         )
 
     def _deterministic_answer(self, messages: Sequence[LLMMessage]) -> str:
-        """Resposta estavel derivada da entrada, no formato JSON que os agentes usam."""
+        """Resposta estavel derivada da entrada.
+
+        Quando o prompt carrega um JSON Schema -- e todos os agentes deste projeto
+        embutem o seu --, a resposta e **construida a partir dele** e passa na validacao.
+        Sem isso, `LLM_PROVIDER=fake` derrubava qualquer fluxo real com
+        `llm_response_format_error`: a promessa de rodar o projeto sem chave de API valia
+        para subir a aplicacao, e nao para exercita-la (ver `app/llm/fake_schema.py`).
+
+        Sem schema no prompt, mantem o formato antigo -- generico e estavel.
+        """
         joined = "\n".join(f"{message.role}:{message.content}" for message in messages)
         digest = hashlib.sha256(joined.encode("utf-8")).hexdigest()[:12]
+
+        schema = next(
+            (
+                encontrado
+                for message in messages
+                if (encontrado := extract_schema(message.content)) is not None
+            ),
+            None,
+        )
+        if schema is not None:
+            return json.dumps(instance_for(schema), ensure_ascii=False)
+
         last_user = next(
             (message.content for message in reversed(messages) if message.role == "user"),
             "",

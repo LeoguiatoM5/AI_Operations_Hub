@@ -3,7 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado ao final do **V6**.
+Atualizado durante o **V7** (Docker e CI concluidos).
 
 ---
 
@@ -17,9 +17,9 @@ Atualizado ao final do **V6**.
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | concluido |
 | V6 | Servidor MCP | concluido |
-| V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
+| V7 | Docker, CI/CD, observabilidade completa, material de portfolio | **em curso** (Docker e CI prontos) |
 
-**Numeros:** 529 testes, 97% de cobertura, `ruff` e `mypy` limpos, 81 decisoes
+**Numeros:** 555 testes, 97% de cobertura, `ruff` e `mypy` limpos, 87 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -320,23 +320,45 @@ longa (o MCP nao tem request onde pendurar `Depends`) e uma sessao de banco por 
 
 ## 7. V7 — Docker, CI/CD e portfolio
 
-### 7.1 Docker
+### 7.1 Docker — **concluido (com um recorte declarado)**
 
-`docker-compose.yml` com `api`, `chromadb`, `n8n` e `postgres`. Migrar de SQLite exige
-trocar a URL e introduzir Alembic (ED-020) -- a convencao de nomes de constraint ja esta
-pronta para isso (ED-021).
+`docker compose up -d --build` sobe a API e o n8n. A API responde `/health`, alcanca o n8n
+pela rede interna e persiste em volume.
 
-**Infraestrutura ja resolvida no V4:** o Docker roda com o disco em
-`D:\Docker\DockerDesktopWSL` (ED-067), e o `docker-compose.yml` ja existe com o servico
-`n8n`. O V7 acrescenta `api`, `chromadb` e `postgres` ao mesmo arquivo.
+- `Dockerfile` multi-estagio: compilador so no build; processo como `aiops` (uid 1000);
+  **codigo pertence ao root** e so `data/` e gravavel (ED-084).
+- `.dockerignore` mantem `.env` fora da imagem -- camada de imagem nao se apaga. Os
+  segredos entram como variavel de ambiente, e o compose os le do `.env` do host.
+- Volume **nomeado** para a API: com bind mount, o SQLite morre com `disk I/O error` no
+  Windows (ED-085). O n8n segue em bind mount, de proposito.
 
-### 7.2 CI (GitHub Actions)
+**Dois servicos previstos que nao entraram, e por que:**
 
-`push` e `pull_request`: `ruff check` -> `ruff format --check` -> `mypy` -> `pytest` ->
-evals com provider deterministico -> build da imagem.
+- **`chromadb`** -- o `ChromaVectorStore` usa o cliente embutido. Subir como servico
+  exigiria implementar o modo HTTP e acrescentaria uma porta de rede a uma dependencia com
+  CVE critica sem correcao (`docs/security.md`). O Protocol `VectorStore` mantem a porta
+  aberta para quando houver mais de uma instancia.
+- **`postgres`** -- exige Alembic (ED-020), que e trabalho proprio. **Pendencia declarada**,
+  em vez de entrega pela metade.
 
-A CI nao pode depender de segredo de LLM: o provider padrao `fake` existe exatamente
-para isso. Adicionar `gitleaks` para varredura de segredos.
+### 7.2 CI — **concluida**
+
+`.github/workflows/ci.yml`, quatro jobs, **nenhum segredo**:
+
+| Job | O que faz |
+|---|---|
+| `quality` | `ruff check`, `ruff format`, `mypy`, `pytest --cov`. Todos com `if: always()`, para o pull request receber todos os problemas de uma vez |
+| `evals` | `run_evals.py --smoke` com provider deterministico; guarda o relatorio como artefato |
+| `security` | `gitleaks` com historico completo -- chave removida do arquivo continua nos commits |
+| `image` | build, **sobe o container e confere o `/health`**, e varre com `trivy` |
+
+**O modo smoke e a decisao que sustenta o job de evals** (ED-086). O plano original era
+rodar a avaliacao completa; a primeira execucao deu 0 de 16, e a investigacao mostrou que
+9 casos jamais passariam -- o provider falso nao entende as perguntas. Um passo de CI que
+nao pode passar e pior que passo nenhum.
+
+Correcao colateral: o provider falso passou a derivar a resposta do schema do prompt
+(ED-087), o que finalmente torna verdadeira a promessa de exercitar o projeto sem chave.
 
 ### 7.3 Material de portfolio
 
@@ -385,6 +407,7 @@ Sem chave de API, o projeto roda por completo com `LLM_PROVIDER=fake` e
 **Cuidado ao trocar de modelo de embedding:** documentos ja indexados com outro modelo
 fazem `/rag/query` devolver `409 embedding_model_mismatch`. Para migrar, apague
 `data/app.db` e `data/chroma` e reenvie os documentos (ED-041).
+
 
 
 

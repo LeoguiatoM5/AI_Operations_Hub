@@ -1,0 +1,39 @@
+# O que NAO entra no contexto de build.
+#
+# Alem de deixar o build rapido, este arquivo e uma barreira de seguranca: sem a linha do
+# `.env`, uma chave de API seria copiada para dentro de uma camada da imagem -- e camada
+# de imagem nao se apaga, viaja junto para qualquer registry.
+
+.env
+.env.*
+*.key
+*.pem
+credentials.json
+service-account*.json
+
+.git
+.github
+.venv
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Dados de runtime: o container monta volume proprio. Copiar o banco de desenvolvimento
+# para dentro da imagem seria levar dados locais para producao.
+data/
+evals/reports/
+
+.claude/
+.idea/
+.vscode/
+docs/
+tests/
+*.md
+!README.md
+Dockerfile
+docker-compose*.yml
