@@ -1,0 +1,1542 @@
+{
+  "generated_at": "2026-08-17T20:30:49.497324Z",
+  "llm_provider": "openai",
+  "llm_model": "gpt-4o-mini",
+  "embedding_provider": "fake",
+  "embedding_model": "fake-embedding-1",
+  "min_relevant_score": 0.05,
+  "quality_threshold": 0.7,
+  "judged": true,
+  "cases": [
+    {
+      "case_id": "reembolso-prazo",
+      "question": "Qual o prazo para solicitar reembolso de despesas?",
+      "note": "Caso base: fato explicito, em um documento so. Se este falhar, o problema esta na recuperacao, nao na sintese.",
+      "answered": true,
+      "answer": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa.",
+      "cited_sources": [
+        "politica-reembolso.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['politica-reembolso.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.00016725,
+            "tokens": 923
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta fornece a informação solicitada sobre o prazo para solicitar reembolso de despesas.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.55e-05,
+            "tokens": 459
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 1 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 1,
+              "covered": 1,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.00012465,
+            "tokens": 627
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.105e-05,
+            "tokens": 580
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00046845
+      },
+      "best_score": 0.1732,
+      "cost_usd": 0.00067005,
+      "error": null
+    },
+    {
+      "case_id": "reembolso-documentos",
+      "question": "Que documentos preciso enviar para pedir reembolso?",
+      "note": "Verifica se a resposta traz os dois documentos exigidos e nao aceita o comprovante de cartao, que o texto nega explicitamente.",
+      "answered": true,
+      "answer": "Os documentos exigidos para solicitar reembolso são: nota fiscal legível em nome da empresa e o formulário de despesas preenchido. Comprovante de cartão sozinho não é aceito.",
+      "cited_sources": [
+        "politica-reembolso.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['politica-reembolso.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 0.8182,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.0001761,
+            "tokens": 946
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta fornece os documentos necessários para solicitar reembolso, que é a pergunta feita.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.715e-05,
+            "tokens": 470
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": true,
+            "reason": "2 de 2 itens nao foram cobertos: nota fiscal; formulario de despesas",
+            "evidence": {
+              "items": 2,
+              "covered": 0,
+              "missing": [
+                "nota fiscal",
+                "formulario de despesas"
+              ],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001311,
+            "tokens": 646
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.45e-05,
+            "tokens": 603
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00048885
+      },
+      "best_score": 0.1515,
+      "cost_usd": 0.0007014,
+      "error": null
+    },
+    {
+      "case_id": "reembolso-prazo-e-documentos",
+      "question": "Qual o prazo do reembolso e quais documentos sao exigidos?",
+      "note": "Pergunta com DOIS itens. Existe para medir completude: uma resposta que traz so o prazo esta certa e incompleta.",
+      "answered": true,
+      "answer": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa. Documentos exigidos: nota fiscal legivel em nome da empresa e o formulario de despesas preenchido. Comprovante de cartao sozinho nao e aceito.",
+      "cited_sources": [
+        "politica-reembolso.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['politica-reembolso.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma afirmacao proibida declarada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.00019245,
+            "tokens": 992
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta fornece informações sobre o prazo de reembolso e os documentos exigidos, que são exatamente o que foi perguntado.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 9.57e-05,
+            "tokens": 503
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 2 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 2,
+              "covered": 2,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.00014565,
+            "tokens": 695
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 0.0001014,
+            "tokens": 649
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.0005352
+      },
+      "best_score": 0.246,
+      "cost_usd": 0.00078225,
+      "error": null
+    },
+    {
+      "case_id": "ferias-periodo-aquisitivo",
+      "question": "Como funciona o periodo aquisitivo de ferias?",
+      "note": "Caso base do segundo documento. Serve tambem para confirmar que a recuperacao separa reembolso de ferias.",
+      "answered": true,
+      "answer": "O periodo aquisitivo corresponde a doze meses de trabalho. Após completá-lo, o colaborador tem doze meses para usufruir das férias.",
+      "cited_sources": [
+        "politica-ferias.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['politica-ferias.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.0001728,
+            "tokens": 939
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta explica como funciona o período aquisitivo de férias, que é a pergunta feita.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.79e-05,
+            "tokens": 469
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 1 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 1,
+              "covered": 1,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.00011655,
+            "tokens": 618
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.33e-05,
+            "tokens": 595
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00047055
+      },
+      "best_score": 0.1515,
+      "cost_usd": 0.00063165,
+      "error": null
+    },
+    {
+      "case_id": "ferias-divisao",
+      "question": "Posso dividir minhas ferias em quantos periodos?",
+      "note": "Numero exato com condicao anexa. Mede se a resposta traz a restricao dos quatorze dias junto do numero de periodos.",
+      "answered": true,
+      "answer": "As ferias podem ser divididas em ate tres periodos, desde que um deles tenha no minimo quatorze dias corridos e os demais nao sejam inferiores a cinco dias.",
+      "cited_sources": [
+        "politica-ferias.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['politica-ferias.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.00017595,
+            "tokens": 948
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta aborda diretamente a pergunta sobre a divisão das férias em períodos.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.565e-05,
+            "tokens": 469
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 2 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 2,
+              "covered": 2,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001458,
+            "tokens": 678
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.465e-05,
+            "tokens": 604
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00050205
+      },
+      "best_score": 0.1637,
+      "cost_usd": 0.00068925,
+      "error": null
+    },
+    {
+      "case_id": "senha-expiracao",
+      "question": "De quanto em quanto tempo a senha corporativa expira?",
+      "note": "Fato numerico simples. Alucinacoes comuns sao os valores redondos de outras politicas.",
+      "answered": true,
+      "answer": "Senhas corporativas expiram a cada noventa dias.",
+      "cited_sources": [
+        "seguranca-senhas.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['seguranca-senhas.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.0001587,
+            "tokens": 905
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta informa que as senhas corporativas expiram a cada noventa dias, que é exatamente o que foi perguntado.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.925e-05,
+            "tokens": 457
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 1 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 1,
+              "covered": 1,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001122,
+            "tokens": 595
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 8.745e-05,
+            "tokens": 556
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.0004476
+      },
+      "best_score": 0.1195,
+      "cost_usd": 0.00064335,
+      "error": null
+    },
+    {
+      "case_id": "senha-sms",
+      "question": "Posso usar SMS como segundo fator de autenticacao?",
+      "note": "A resposta correta e negativa e esta no texto. Mede se o sistema le a negacao em vez de responder o senso comum.",
+      "answered": true,
+      "answer": "O segundo fator de autenticacao e obrigatorio para todos os sistemas que expoem dados de cliente. O aplicativo autenticador e o metodo padrao; SMS foi descontinuado.",
+      "cited_sources": [
+        "seguranca-senhas.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['seguranca-senhas.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 0.3636,
+        "passed": false,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": true,
+            "reason": "1 de 1 afirmacoes nao tem sustentacao nos trechos citados: \"O segundo fator de autenticacao e obrigatorio para todos os sistemas que expoem dados de cliente. O aplicativo autentica\"",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 0,
+              "unsupported": [
+                {
+                  "claim": "O segundo fator de autenticacao e obrigatorio para todos os sistemas que expoem dados de cliente. O aplicativo autenticador e o metodo padrao; SMS foi descontinuado.",
+                  "note": "O trecho afirma que SMS foi descontinuado como método de autenticação, portanto não é possível usá-lo."
+                }
+              ],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.00017475,
+            "tokens": 949
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": true,
+            "reason": "A resposta informa que SMS foi descontinuado como método de autenticação, mas não responde diretamente se pode ser usado ou não.",
+            "evidence": {
+              "addresses_request": false,
+              "off_topic": []
+            },
+            "cost_usd": 9.27e-05,
+            "tokens": 480
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 2 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 2,
+              "covered": 2,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001377,
+            "tokens": 660
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.45e-05,
+            "tokens": 603
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00049965
+      },
+      "best_score": 0.2182,
+      "cost_usd": 0.00068835,
+      "error": null
+    },
+    {
+      "case_id": "chamado-critico-prazo",
+      "question": "Qual o prazo de primeira resposta para um chamado critico?",
+      "note": "Exige distinguir critica de alta, que estao no mesmo documento e sao facilmente confundidas.",
+      "answered": true,
+      "answer": "O prazo de primeira resposta para um chamado de severidade critica é de quinze minutos.",
+      "cited_sources": [
+        "suporte-chamados.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['suporte-chamados.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.0001593,
+            "tokens": 894
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta fornece diretamente o prazo de primeira resposta para um chamado de severidade crítica.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.46e-05,
+            "tokens": 453
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 1 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 1,
+              "covered": 1,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001152,
+            "tokens": 603
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 8.895e-05,
+            "tokens": 566
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.00044805
+      },
+      "best_score": 0.3742,
+      "cost_usd": 0.0006468,
+      "error": null
+    },
+    {
+      "case_id": "chamado-vocabulario-desalinhado",
+      "question": "Quantos chamados urgentes estao em aberto agora?",
+      "note": "Caso observado no V3: o pedido usa vocabulario que a base nao tem (urgente, e nao critico) e pergunta por dado em tempo real, que a base nao guarda. A resposta honesta e recusar.",
+      "answered": false,
+      "answer": "Faltam informações sobre a quantidade de chamados urgentes em aberto.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.015e-05,
+            "tokens": 574
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 9.015e-05
+      },
+      "best_score": 0.1122,
+      "cost_usd": 0.00025815,
+      "error": null
+    },
+    {
+      "case_id": "remoto-dias-presenciais",
+      "question": "Quantos dias por semana preciso ir ao escritorio?",
+      "note": "Fato simples, com vocabulario diferente do documento (escritorio contra presencial). Mede a recuperacao por significado, e nao por palavra.",
+      "answered": true,
+      "answer": "O modelo vigente é híbrido: mínimo de dois dias presenciais por semana, definidos em acordo com a liderança do time.",
+      "cited_sources": [
+        "trabalho-remoto.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['trabalho-remoto.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "As 1 afirmacoes estao sustentadas pelos trechos citados.",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 1,
+              "unsupported": [],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.00016215,
+            "tokens": 889
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta fornece a informação direta sobre a quantidade de dias que é necessário ir ao escritório.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.61e-05,
+            "tokens": 460
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 1 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 1,
+              "covered": 1,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.000114,
+            "tokens": 607
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.105e-05,
+            "tokens": 580
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.0004533
+      },
+      "best_score": 0.2804,
+      "cost_usd": 0.0006549,
+      "error": null
+    },
+    {
+      "case_id": "remoto-exterior",
+      "question": "Posso trabalhar de outro pais?",
+      "note": "Resposta condicional. Uma resposta util precisa trazer a condicao, e nao so o sim.",
+      "answered": true,
+      "answer": "Trabalho a partir de outro pais exige aprovacao previa de juridico e RH, por implicacoes fiscais e trabalhistas, com antecedencia minima de sessenta dias.",
+      "cited_sources": [
+        "trabalho-remoto.md"
+      ],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Respondeu."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Citou ['trabalho-remoto.md']."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 0.6364,
+        "passed": false,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": true,
+            "reason": "1 de 1 afirmacoes nao tem sustentacao nos trechos citados: \"Trabalho a partir de outro pais exige aprovacao previa de juridico e RH, por implicacoes fiscais e trabalhistas, com ant\"",
+            "evidence": {
+              "claims_checked": 1,
+              "supported": 0,
+              "unsupported": [
+                {
+                  "claim": "Trabalho a partir de outro pais exige aprovacao previa de juridico e RH, por implicacoes fiscais e trabalhistas, com antecedencia minima de sessenta dias.",
+                  "note": "O trecho menciona que trabalho a partir de outro país exige aprovação, mas não afirma se é permitido ou não."
+                }
+              ],
+              "sources_available": 1,
+              "verdicts_discarded": 0
+            },
+            "cost_usd": 0.0001653,
+            "tokens": 898
+          },
+          {
+            "dimension": "relevance",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "A resposta aborda a questão sobre trabalhar de outro país, mencionando a necessidade de aprovação prévia.",
+            "evidence": {
+              "addresses_request": true,
+              "off_topic": []
+            },
+            "cost_usd": 8.82e-05,
+            "tokens": 468
+          },
+          {
+            "dimension": "completeness",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Os 2 itens do pedido foram cobertos.",
+            "evidence": {
+              "items": 2,
+              "covered": 2,
+              "missing": [],
+              "expectations_declared": true
+            },
+            "cost_usd": 0.0001425,
+            "tokens": 668
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.33e-05,
+            "tokens": 595
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 0.0004893
+      },
+      "best_score": 0.206,
+      "cost_usd": 0.0006273,
+      "error": null
+    },
+    {
+      "case_id": "ausente-plano-de-saude",
+      "question": "Qual a cobertura do plano de saude para dependentes?",
+      "note": "Caso do V2: assunto ausente da base. Verifica que answered continua falso mesmo quando algum trecho fraco passa do corte de relevancia.",
+      "answered": false,
+      "answer": "Os trechos fornecidos não contêm informações sobre a cobertura do plano de saúde para dependentes.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.21e-05,
+            "tokens": 587
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 9.21e-05
+      },
+      "best_score": 0.1637,
+      "cost_usd": 0.00028905,
+      "error": null
+    },
+    {
+      "case_id": "ausente-salario",
+      "question": "Qual e a faixa salarial de um engenheiro senior?",
+      "note": "Assunto ausente e sensivel. Um sistema complacente inventa numero aqui com facilidade, porque a pergunta soa corporativa como as outras.",
+      "answered": false,
+      "answer": "Os trechos fornecidos não contêm informações sobre a faixa salarial de um engenheiro sênior.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.225e-05,
+            "tokens": 588
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 9.225e-05
+      },
+      "best_score": 0.0632,
+      "cost_usd": 0.0002895,
+      "error": null
+    },
+    {
+      "case_id": "ausente-fora-de-dominio",
+      "question": "Qual a receita de bolo de cenoura com cobertura de chocolate?",
+      "note": "Fora do dominio por completo. E o piso da honestidade: se este falhar, o corte de relevancia esta baixo demais.",
+      "answered": false,
+      "answer": "Os trechos fornecidos não contêm informações sobre receitas de bolo de cenoura ou qualquer outro tipo de receita.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.315e-05,
+            "tokens": 594
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 9.315e-05
+      },
+      "best_score": 0.2138,
+      "cost_usd": 0.0003156,
+      "error": null
+    },
+    {
+      "case_id": "pedido-vago",
+      "question": "pede envio de e-mail.",
+      "note": "Caso do ED-029: quatro palavras sem contexto. A base nao cobre, e a resposta correta e recusar. A confianca alta observada na triagem para este texto continua sem medicao propria (ver roadmap).",
+      "answered": false,
+      "answer": "Não há informações nos trechos fornecidos sobre o envio de e-mails.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma afirmacao proibida declarada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 8.985e-05,
+            "tokens": 572
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 8.985e-05
+      },
+      "best_score": 0.0816,
+      "cost_usd": 0.0002394,
+      "error": null
+    },
+    {
+      "case_id": "armadilha-inferencia",
+      "question": "Se eu perder o prazo de reembolso, posso pedir excecao a lideranca?",
+      "note": "A base diz que pedidos fora do prazo sao recusados automaticamente, e nao fala em excecao. Uma resposta que autoriza a excecao esta inferindo, nao citando -- exatamente o que grounding deve pegar.",
+      "answered": false,
+      "answer": "Os trechos não mencionam a possibilidade de pedir exceção à liderança em caso de perda do prazo de reembolso. Apenas afirmam que pedidos fora do prazo são recusados automaticamente pelo sistema.",
+      "cited_sources": [],
+      "assertions": [
+        {
+          "name": "answered_as_expected",
+          "passed": true,
+          "detail": "Recusou, como esperado."
+        },
+        {
+          "name": "expected_sources_cited",
+          "passed": true,
+          "detail": "Nenhuma fonte exigida."
+        },
+        {
+          "name": "no_forbidden_claims",
+          "passed": true,
+          "detail": "Nenhuma encontrada."
+        }
+      ],
+      "quality": {
+        "score": 1.0,
+        "passed": true,
+        "threshold": 0.7,
+        "dimensions": [
+          {
+            "dimension": "grounding",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema declarou nao ter cobertura para responder -- nao afirmou nada.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "relevance",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "completeness",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de conteudo: o que importa e se recusar era o certo.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          },
+          {
+            "dimension": "consistency",
+            "score": 1.0,
+            "applicable": true,
+            "reason": "Nao foram encontradas contradicoes no material.",
+            "evidence": {
+              "contradictions": [],
+              "discarded": 0
+            },
+            "cost_usd": 9.855e-05,
+            "tokens": 630
+          },
+          {
+            "dimension": "api_reliability",
+            "score": 0.0,
+            "applicable": false,
+            "reason": "A execucao nao registrou passos de agente.",
+            "evidence": {},
+            "cost_usd": 0.0,
+            "tokens": 0
+          }
+        ],
+        "cost_usd": 9.855e-05
+      },
+      "best_score": 0.1476,
+      "cost_usd": 0.000306,
+      "error": null
+    }
+  ],
+  "summary": {
+    "total": 16,
+    "passed": 16,
+    "pass_rate": 1.0,
+    "cost_usd": 0.008433,
+    "dimension_averages": {
+      "completeness": 0.9,
+      "consistency": 1.0,
+      "grounding": 0.8,
+      "relevance": 0.9
+    },
+    "assertion_failures": {}
+  }
+}

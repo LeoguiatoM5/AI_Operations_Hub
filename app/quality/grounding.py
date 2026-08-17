@@ -22,6 +22,77 @@ from app.quality.judge import JudgedDimension, ratio
 
 logger = get_logger(__name__)
 
+
+def _squash(texto: str) -> str:
+    """Normaliza espacos e caixa para comparar afirmacoes."""
+    return " ".join(texto.lower().split())
+
+
+#: A partir deste tamanho, contencao de texto e evidencia de correspondencia. Abaixo
+#: dele, nao e: "a" esta contido em "inventada", e aceitar isso deixaria passar
+#: exatamente a afirmacao alucinada que este filtro existe para barrar.
+MIN_CONTAINMENT_CHARS = 40
+
+
+def _matches_any(devolvida: str, enviadas: list[str]) -> bool:
+    """A afirmacao devolvida pelo juiz corresponde a alguma que enviamos?
+
+    A comparacao era igualdade exata, e o conjunto de avaliacao mostrou que isso e fragil:
+    quando a afirmacao e uma resposta inteira, o juiz reescreve pontuacao ou corta o final,
+    e o veredito legitimo era descartado -- derrubando a nota a zero por uma diferenca de
+    espaco em branco.
+
+    Agora normaliza caixa e espacos e, **apenas para textos longos**, aceita contencao nos
+    dois sentidos, que cobre o truncamento. O limite de tamanho nao e detalhe: sem ele, a
+    primeira versao desta funcao passou a aceitar uma afirmacao inventada de nove
+    caracteres porque uma das enviadas tinha um caractere -- o teste pegou.
+    """
+    alvo = _squash(devolvida)
+    if not alvo:
+        return False
+
+    for item in enviadas:
+        candidato = _squash(item)
+        if alvo == candidato:
+            return True
+        longos = len(alvo) >= MIN_CONTAINMENT_CHARS and len(candidato) >= MIN_CONTAINMENT_CHARS
+        if longos and (alvo in candidato or candidato in alvo):
+            return True
+    return False
+
+
+def _pair_verdicts(
+    devolvidos: list["ClaimVerdict"], enviadas: list[str]
+) -> tuple[list["ClaimVerdict"], int]:
+    """Associa cada veredito a afirmacao que ele julga.
+
+    **Quando as contagens batem, vale a posicao.** O prompt pede um veredito por afirmacao,
+    na ordem; se vieram tantos quantos foram enviados, a leitura natural e a posicional, e
+    o texto devolvido e apenas o eco -- que o modelo reescreve com liberdade. O texto da
+    afirmacao e substituido pelo nosso, para que a evidencia mostre o que realmente foi
+    julgado.
+
+    **Quando nao batem**, cai para correspondencia por texto: e o unico jeito de saber
+    quais vereditos aproveitar, e o excedente e descartado.
+
+    Isto nasceu de um falso negativo grave encontrado pelo conjunto de avaliacao: duas
+    respostas quase literais do documento receberam `grounding = 0` porque o juiz devolveu
+    o texto da afirmacao com pequenas diferencas e o filtro descartou o veredito legitimo.
+    Como `grounding` reprova sozinha, o defeito rejeitaria respostas corretas em producao.
+    """
+    if len(devolvidos) == len(enviadas):
+        return (
+            [
+                item.model_copy(update={"claim": texto})
+                for item, texto in zip(devolvidos, enviadas, strict=True)
+            ],
+            0,
+        )
+
+    validos = [item for item in devolvidos if _matches_any(item.claim, enviadas)]
+    return validos, len(devolvidos) - len(validos)
+
+
 #: Teto de afirmacoes enviadas ao juiz. Cada uma custa tokens, e um relatorio alucinado
 #: com cinquenta pontos-chave nao deve multiplicar por cinquenta a conta da avaliacao.
 MAX_CLAIMS = 20
@@ -76,12 +147,7 @@ class GroundingDimension(JudgedDimension):
             claims=self._render_claims(afirmacoes),
         )
 
-        # So contam os vereditos sobre afirmacoes que de fato enviamos. Um juiz que
-        # inventa uma afirmacao inexistente e a aprova inflaria a nota -- e ja aconteceu
-        # com modelos menores em tarefas de listagem.
-        enviadas = {texto.strip() for texto in afirmacoes}
-        validos = [item for item in veredito.verdicts if item.claim.strip() in enviadas]
-        ignorados = len(veredito.verdicts) - len(validos)
+        validos, ignorados = _pair_verdicts(veredito.verdicts, afirmacoes)
 
         sustentadas = [item for item in validos if item.supported]
         sem_fonte = [item for item in validos if not item.supported]

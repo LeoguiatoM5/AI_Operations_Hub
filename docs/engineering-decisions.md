@@ -1198,3 +1198,107 @@ fluxo real -- e nao apenas no teste unitario da dimensao isolada.
 **Licao.** Um teste de integracao que conta chamadas pagas detecta otimizacao que
 funciona **e** otimizacao que deixou de funcionar. O numero 10 naquele assert e uma
 afirmacao sobre a conta do fim do mes.
+
+---
+
+## ED-073 — O conjunto de avaliacao roda o sistema, nao respostas gravadas
+
+**Decisao.** `EvalRunner` chama o `RagService` de verdade -- o mesmo que atende
+`/rag/query` -- e so entao avalia.
+
+**Alternativa descartada.** Avaliar respostas gravadas de antemao. Seria mais rapido,
+mais barato e deterministico, e mediria apenas o juiz: a suite continuaria verde enquanto
+o sistema apodrecia.
+
+**Consequencia aceita.** A base e reconstruida do zero a cada rodada, num indice em
+memoria, a partir de `evals/corpus/`. Reaproveitar a base de desenvolvimento tornaria o
+resultado dependente do que alguem subiu ontem, e duas rodadas deixariam de ser
+comparaveis sem que ninguem percebesse.
+
+---
+
+## ED-074 — Assercoes deterministicas valem mais que as notas
+
+**Decisao.** O veredito do relatorio (`pass_rate`) se apoia nas assercoes, e nao nas
+dimensoes julgadas. As notas descrevem *quao bem*; as assercoes dizem *se*.
+
+**Motivo.** Comparar dois conjuntos de nomes de arquivo, ou um booleano com outro, nao tem
+vies, nao custa e nao muda entre execucoes. Sao tres:
+
+- `answered_as_expected` -- respondeu quando devia e recusou quando devia;
+- `expected_sources_cited` -- por contencao, e nao igualdade: citar um documento a mais
+  nao e erro;
+- `no_forbidden_claims` -- busca por substring normalizada, grosseira de proposito. Pega
+  a alucinacao literal sem custo; a parafrase escapa, e para isso existe `grounding`. As
+  duas se complementam por falharem em lugares diferentes.
+
+**O sinal mais importante que o conjunto pode dar** e a discordancia: notas altas com
+assercoes falhando indicam juiz complacente. O inverso -- assercoes passando com notas
+baixas -- foi o que aconteceu na primeira rodada, e revelou um defeito no portao.
+
+---
+
+## ED-075 — O conjunto encontrou o portao punindo recusa correta
+
+**Como apareceu.** Primeira rodada com juizes: os cinco casos de recusa correta tiraram
+entre 0.29 e 0.40, com todas as assercoes passando.
+
+**Causa.** `grounding` tinha atalho para recusa desde o inicio; `relevance` e
+`completeness` nao. Elas rodavam e diziam, corretamente do ponto de vista literal, que a
+resposta "nao aborda a pergunta" e que "1 de 1 itens nao foi coberto".
+
+**O prompt nao bastou.** O de `relevance` mandava explicitamente tratar recusa honesta
+como pertinente. O juiz ignorou. **Atalho em codigo vence instrucao em prompt**: um e
+determinista e gratuito, o outro depende de o modelo obedecer.
+
+**Correcao.** `refusal_is_not_graded`, compartilhado pelas duas. Uma recusa nao tem sobre
+o que ser pertinente nem o que completar; o que importa e se recusar era o certo, e isso
+ja e medido sem LLM pela assercao `answered_as_expected`. Dar nota aqui contava a mesma
+coisa duas vezes, e ao contrario.
+
+**Efeito medido.** Os cinco casos foram de 0.29-0.71 para 1.00, e a rodada ficou mais
+barata (US$ 0.0096 -> US$ 0.0084), porque o atalho tambem evita a chamada.
+
+---
+
+## ED-076 — Vereditos pareados por posicao quando as contagens batem
+
+**Como apareceu.** Duas respostas quase literais do documento receberam `grounding = 0`
+com a mensagem "o juiz nao avaliou nenhuma das afirmacoes enviadas".
+
+**Causa.** O filtro que descarta veredito sobre afirmacao inventada comparava o texto
+devolvido com o enviado. O juiz reescreve o eco -- pontuacao, acento, truncamento -- e o
+veredito legitimo era descartado.
+
+**Gravidade.** `grounding` reprova sozinha (`CRITICAL_DIMENSIONS`). O defeito rejeitaria
+em producao respostas corretas, com a mensagem menos util possivel.
+
+**Correcao.** Quando o numero de vereditos e igual ao de afirmacoes enviadas, vale a
+posicao -- e o texto e substituido pelo nosso, para a evidencia mostrar o que foi de fato
+julgado. So quando as contagens diferem entra a comparacao por texto.
+
+**Tentativa intermediaria, e o que ela ensinou.** A primeira correcao relaxou a comparacao
+para aceitar contencao. O teste da afirmacao inventada quebrou na hora: `"a"` esta contido
+em `"inventada"`. Contencao so e evidencia entre textos longos, e o limite de 40
+caracteres existe por causa disso.
+
+---
+
+## ED-077 — O juiz nao e deterministico, mesmo com temperatura zero
+
+**Observado.** `reembolso-documentos` recebeu `completeness = 1.00` numa rodada e `0.82`
+na seguinte, com a mesma pergunta, o mesmo corpus e `temperature=0`.
+
+**O que isso significa.** `JUDGE_TEMPERATURE = 0.0` reduz a variacao, nao a elimina:
+a amostragem gulosa ainda depende de detalhes de implementacao do provedor. Comparar duas
+rodadas exige tratar diferencas pequenas como ruido, e nao como regressao.
+
+**Consequencia pratica.** Um limite de qualidade calibrado colado na media do conjunto
+produziria reprovacoes intermitentes -- o mesmo pedido passando hoje e falhando amanha. A
+calibracao precisa deixar margem, e a margem precisa sair da variacao medida entre
+rodadas repetidas, nao de intuicao.
+
+**Ainda em aberto.** Tres casos terminam com o juiz discordando das assercoes
+(`senha-sms`, `remoto-exterior`, `reembolso-documentos`). Separar "juiz severo demais" de
+"sistema citou o trecho errado" exige ler os chunks caso a caso -- e e esse trabalho, e
+nao mais codigo, que produz os limites do V5.

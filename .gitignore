@@ -43,3 +43,8 @@ Thumbs.db
 evals/reports/*.json
 evals/reports/*.md
 !evals/reports/.gitkeep
+
+# O relatorio mais recente e versionado como artefato: quem abre o repositorio ve a
+# medicao sem precisar rodar nada (e sem precisar de chave de API).
+!evals/reports/latest.md
+!evals/reports/latest.json

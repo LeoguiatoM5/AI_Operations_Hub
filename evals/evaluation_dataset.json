@@ -1,0 +1,146 @@
+[
+  {
+    "id": "reembolso-prazo",
+    "question": "Qual o prazo para solicitar reembolso de despesas?",
+    "note": "Caso base: fato explicito, em um documento so. Se este falhar, o problema esta na recuperacao, nao na sintese.",
+    "expected_topics": ["prazo de 30 dias corridos"],
+    "expected_sources": ["politica-reembolso.md"],
+    "forbidden_claims": ["60 dias", "90 dias"],
+    "should_answer": true
+  },
+  {
+    "id": "reembolso-documentos",
+    "question": "Que documentos preciso enviar para pedir reembolso?",
+    "note": "Verifica se a resposta traz os dois documentos exigidos e nao aceita o comprovante de cartao, que o texto nega explicitamente.",
+    "expected_topics": ["nota fiscal", "formulario de despesas"],
+    "expected_sources": ["politica-reembolso.md"],
+    "forbidden_claims": ["comprovante de cartao e aceito"],
+    "should_answer": true
+  },
+  {
+    "id": "reembolso-prazo-e-documentos",
+    "question": "Qual o prazo do reembolso e quais documentos sao exigidos?",
+    "note": "Pergunta com DOIS itens. Existe para medir completude: uma resposta que traz so o prazo esta certa e incompleta.",
+    "expected_topics": ["prazo de 30 dias corridos", "nota fiscal e formulario de despesas"],
+    "expected_sources": ["politica-reembolso.md"],
+    "forbidden_claims": [],
+    "should_answer": true
+  },
+  {
+    "id": "ferias-periodo-aquisitivo",
+    "question": "Como funciona o periodo aquisitivo de ferias?",
+    "note": "Caso base do segundo documento. Serve tambem para confirmar que a recuperacao separa reembolso de ferias.",
+    "expected_topics": ["doze meses de trabalho"],
+    "expected_sources": ["politica-ferias.md"],
+    "forbidden_claims": ["seis meses"],
+    "should_answer": true
+  },
+  {
+    "id": "ferias-divisao",
+    "question": "Posso dividir minhas ferias em quantos periodos?",
+    "note": "Numero exato com condicao anexa. Mede se a resposta traz a restricao dos quatorze dias junto do numero de periodos.",
+    "expected_topics": ["ate tres periodos", "um periodo de no minimo quatorze dias"],
+    "expected_sources": ["politica-ferias.md"],
+    "forbidden_claims": ["quantos periodos quiser", "sem limite"],
+    "should_answer": true
+  },
+  {
+    "id": "senha-expiracao",
+    "question": "De quanto em quanto tempo a senha corporativa expira?",
+    "note": "Fato numerico simples. Alucinacoes comuns sao os valores redondos de outras politicas.",
+    "expected_topics": ["noventa dias"],
+    "expected_sources": ["seguranca-senhas.md"],
+    "forbidden_claims": ["30 dias", "180 dias", "a cada ano"],
+    "should_answer": true
+  },
+  {
+    "id": "senha-sms",
+    "question": "Posso usar SMS como segundo fator de autenticacao?",
+    "note": "A resposta correta e negativa e esta no texto. Mede se o sistema le a negacao em vez de responder o senso comum.",
+    "expected_topics": ["SMS foi descontinuado", "aplicativo autenticador"],
+    "expected_sources": ["seguranca-senhas.md"],
+    "forbidden_claims": ["sim, o sms e aceito"],
+    "should_answer": true
+  },
+  {
+    "id": "chamado-critico-prazo",
+    "question": "Qual o prazo de primeira resposta para um chamado critico?",
+    "note": "Exige distinguir critica de alta, que estao no mesmo documento e sao facilmente confundidas.",
+    "expected_topics": ["quinze minutos"],
+    "expected_sources": ["suporte-chamados.md"],
+    "forbidden_claims": ["duas horas", "um dia util"],
+    "should_answer": true
+  },
+  {
+    "id": "chamado-vocabulario-desalinhado",
+    "question": "Quantos chamados urgentes estao em aberto agora?",
+    "note": "Caso observado no V3: o pedido usa vocabulario que a base nao tem (urgente, e nao critico) e pergunta por dado em tempo real, que a base nao guarda. A resposta honesta e recusar.",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": ["estao em aberto", "no momento ha"],
+    "should_answer": false
+  },
+  {
+    "id": "remoto-dias-presenciais",
+    "question": "Quantos dias por semana preciso ir ao escritorio?",
+    "note": "Fato simples, com vocabulario diferente do documento (escritorio contra presencial). Mede a recuperacao por significado, e nao por palavra.",
+    "expected_topics": ["dois dias presenciais"],
+    "expected_sources": ["trabalho-remoto.md"],
+    "forbidden_claims": ["totalmente remoto", "cinco dias"],
+    "should_answer": true
+  },
+  {
+    "id": "remoto-exterior",
+    "question": "Posso trabalhar de outro pais?",
+    "note": "Resposta condicional. Uma resposta util precisa trazer a condicao, e nao so o sim.",
+    "expected_topics": ["aprovacao previa de juridico e RH", "sessenta dias de antecedencia"],
+    "expected_sources": ["trabalho-remoto.md"],
+    "forbidden_claims": ["sem restricao", "nao e permitido"],
+    "should_answer": true
+  },
+  {
+    "id": "ausente-plano-de-saude",
+    "question": "Qual a cobertura do plano de saude para dependentes?",
+    "note": "Caso do V2: assunto ausente da base. Verifica que answered continua falso mesmo quando algum trecho fraco passa do corte de relevancia.",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": ["a cobertura inclui", "os dependentes tem direito"],
+    "should_answer": false
+  },
+  {
+    "id": "ausente-salario",
+    "question": "Qual e a faixa salarial de um engenheiro senior?",
+    "note": "Assunto ausente e sensivel. Um sistema complacente inventa numero aqui com facilidade, porque a pergunta soa corporativa como as outras.",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": ["a faixa e de", "R$"],
+    "should_answer": false
+  },
+  {
+    "id": "ausente-fora-de-dominio",
+    "question": "Qual a receita de bolo de cenoura com cobertura de chocolate?",
+    "note": "Fora do dominio por completo. E o piso da honestidade: se este falhar, o corte de relevancia esta baixo demais.",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": ["ingredientes", "xicara", "forno"],
+    "should_answer": false
+  },
+  {
+    "id": "pedido-vago",
+    "question": "pede envio de e-mail.",
+    "note": "Caso do ED-029: quatro palavras sem contexto. A base nao cobre, e a resposta correta e recusar. A confianca alta observada na triagem para este texto continua sem medicao propria (ver roadmap).",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": [],
+    "should_answer": false
+  },
+  {
+    "id": "armadilha-inferencia",
+    "question": "Se eu perder o prazo de reembolso, posso pedir excecao a lideranca?",
+    "note": "A base diz que pedidos fora do prazo sao recusados automaticamente, e nao fala em excecao. Uma resposta que autoriza a excecao esta inferindo, nao citando -- exatamente o que grounding deve pegar.",
+    "expected_topics": [],
+    "expected_sources": [],
+    "forbidden_claims": ["a lideranca pode aprovar", "e possivel abrir excecao"],
+    "should_answer": false
+  }
+]

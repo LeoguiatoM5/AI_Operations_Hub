@@ -103,6 +103,27 @@ async def test_a_verdict_about_a_claim_we_never_sent_is_discarded() -> None:
     assert nota.evidence["verdicts_discarded"] == 1
 
 
+async def test_matching_counts_are_paired_by_position() -> None:
+    """Quando vem um veredito por afirmacao, vale a posicao -- o texto e apenas o eco, e
+    o modelo o reescreve.
+
+    Este caso nasceu de um falso negativo achado pelo conjunto de avaliacao: respostas
+    quase literais do documento tiravam `grounding = 0` porque o eco vinha diferente. Como
+    grounding reprova sozinha, o defeito rejeitaria respostas corretas em producao.
+    """
+    subject = rag_subject(claims=["O prazo e de 30 dias corridos, conforme a politica."])
+    provider = FakeLLMProvider(
+        script=[verdicts_json(("o prazo E de 30 dias corridos conforme a politica", True))]
+    )
+
+    nota = await GroundingDimension(provider).evaluate(subject)
+
+    assert nota.score == 1.0
+    assert nota.evidence["verdicts_discarded"] == 0
+    # A evidencia mostra a afirmacao QUE ENVIAMOS, e nao o eco do modelo.
+    assert nota.evidence["claims_checked"] == 1
+
+
 async def test_the_judge_receives_the_sources_numbered() -> None:
     provider = FakeLLMProvider(script=[verdicts_json(("O prazo e de 30 dias corridos.", True))])
 

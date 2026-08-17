@@ -29,6 +29,7 @@ from pydantic import BaseModel
 
 from app.llm.base import LLMMessage, LLMProvider, LLMResponse
 from app.llm.structured import complete_structured, dump_schema
+from app.quality.base import DimensionScore
 
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
@@ -85,6 +86,35 @@ class JudgedDimension:
             temperature=JUDGE_TEMPERATURE,
         )
         return completion.value, completion.response
+
+
+def refusal_is_not_graded(dimension: str) -> DimensionScore:
+    """Recusa honesta nao recebe nota de conteudo.
+
+    **Encontrado pelo conjunto de avaliacao, e nao previsto.** Na primeira rodada com
+    juizes, todos os cinco casos de recusa correta tiraram entre 0.29 e 0.40: `relevance`
+    dizia "a resposta nao aborda a pergunta" e `completeness` dizia "1 de 1 itens nao
+    foram cobertos". Ambos estavam literalmente certos e medindo a coisa errada -- uma
+    recusa nao tem sobre o que ser pertinente nem o que completar.
+
+    O `grounding` ja tinha esse atalho desde o inicio; as outras duas nao, e o prompt do
+    `relevance` chegava a mandar tratar recusa como pertinente. O juiz ignorou. **Atalho
+    em codigo vence instrucao em prompt**: um e determinista e gratuito, o outro depende
+    de o modelo obedecer.
+
+    O que importa numa recusa e se ela era *correta*, e isso ja e medido -- sem LLM, sem
+    ambiguidade -- pela assercao `answered_as_expected` do conjunto de avaliacao. Dar nota
+    aqui seria contar a mesma coisa duas vezes, e ao contrario.
+    """
+    return DimensionScore(
+        dimension=dimension,
+        score=0.0,
+        applicable=False,
+        reason=(
+            "O sistema recusou por falta de cobertura. Uma recusa nao recebe nota de "
+            "conteudo: o que importa e se recusar era o certo."
+        ),
+    )
 
 
 def ratio(aprovados: int, total: int) -> float:

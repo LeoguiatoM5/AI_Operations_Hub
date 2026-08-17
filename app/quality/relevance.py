@@ -13,7 +13,7 @@ oposto do que o projeto inteiro tenta garantir.
 from pydantic import BaseModel, Field
 
 from app.quality.base import DimensionScore, QualitySubject
-from app.quality.judge import JudgedDimension
+from app.quality.judge import JudgedDimension, refusal_is_not_graded
 
 #: Desconto por trecho fora do assunto numa resposta que, no geral, responde ao pedido.
 #: Divagar nao invalida a resposta, mas dilui: quem le precisa garimpar.
@@ -44,6 +44,9 @@ class RelevanceDimension(JudgedDimension):
                 applicable=False,
                 reason="Nao houve resposta a avaliar.",
             )
+
+        if not subject.answered:
+            return refusal_is_not_graded(self.name)
 
         veredito, response = await self._judge(
             "relevance",

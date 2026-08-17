@@ -19,7 +19,7 @@ qual dos dois caminhos rodou.
 from pydantic import BaseModel, Field
 
 from app.quality.base import DimensionScore, QualitySubject
-from app.quality.judge import JudgedDimension, ratio
+from app.quality.judge import JudgedDimension, ratio, refusal_is_not_graded
 
 MAX_ANSWER_CHARS = 4_000
 MAX_ITEMS = 15
@@ -54,6 +54,9 @@ class CompletenessDimension(JudgedDimension):
                 applicable=False,
                 reason="Nao houve resposta a avaliar.",
             )
+
+        if not subject.answered:
+            return refusal_is_not_graded(self.name)
 
         esperados = self._expected(subject)
         veredito, response = await self._judge(

@@ -73,7 +73,8 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["S101"]
-"scripts/*" = ["T20"] # scripts de linha de comando escrevem no stdout de proposito
+"scripts/*" = ["T20"]   # scripts de linha de comando escrevem no stdout de proposito
+"run_evals.py" = ["T20"]
 
 # ---------------------------------------------------------------- mypy
 [tool.mypy]

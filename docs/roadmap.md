@@ -3,7 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado ao final do **V4**.
+Atualizado durante o **V5** (5.1, 5.2 e o motor completo concluidos).
 
 ---
 
@@ -15,11 +15,11 @@ Atualizado ao final do **V4**.
 | V2 | RAG com ChromaDB, ingestao de documentos, consulta com fontes citadas | concluido |
 | V3 | LangGraph, quatro agentes, roteamento por plano, checkpointer persistente | concluido |
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
-| V5 | AI Quality Gateway e AI Evals | planejado |
+| V5 | AI Quality Gateway e AI Evals | **em curso** (motor e conjunto prontos; calibracao pendente) |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
 
-**Numeros:** 435 testes, 97% de cobertura, `ruff` e `mypy` limpos, 67 decisoes
+**Numeros:** 518 testes, 97% de cobertura, `ruff` e `mypy` limpos, 77 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -40,6 +40,8 @@ app/
   workflows/     state (TypedDict + reducers), nodes, graph, checkpointer
   services/      execution, document, rag, workflow   <- regra de negocio, sem FastAPI
   repositories/  acesso a dados (execution, document)
+  quality/       motor de qualidade: cinco dimensoes, agregacao, juizes por LLM
+  evals/         conjunto de avaliacao: carga, assercoes, runner, relatorio
   models/        SQLAlchemy (Execution, AgentExecution, Document, Approval)
   api/           rotas, deps (injecao), middleware (correlation ID), errors, responses
   schemas/       Pydantic de entrada e saida
@@ -217,7 +219,28 @@ reprovacao; falhando de novo, `NEEDS_HUMAN_REVIEW` (o estado ja existe no enum).
 **Modo offline:** `python run_evals.py` roda o mesmo motor sobre
 `evals/evaluation_dataset.json` e emite relatorio em `evals/reports/`.
 
-### 5.2 Conjunto de avaliacao
+### 5.2 Conjunto de avaliacao — **concluido**
+
+`evals/evaluation_dataset.json` com 16 casos sobre um corpus de 5 documentos, e
+`run_evals.py` como modo offline do mesmo motor.
+
+- Cada caso declara `note`: **por que existe**. Ha teste de contrato exigindo isso -- um
+  caso cujo motivo ninguem lembra e apagado no primeiro dia em que der trabalho.
+- Tres assercoes deterministicas, sem LLM, sustentam o veredito (ED-074). As notas
+  descrevem *quao bem*; as assercoes dizem *se*.
+- `python run_evals.py` roda gratis (so assercoes); `--judge` acrescenta as dimensoes.
+  Codigo de saida diferente de zero quando ha reprovacao, para a CI poder quebrar.
+- O relatorio mais recente fica versionado em `evals/reports/latest.md`.
+
+**O conjunto se pagou na primeira rodada**, encontrando dois defeitos no proprio portao:
+recusa correta era punida (ED-075) e vereditos legitimos de grounding eram descartados
+(ED-076) -- este ultimo rejeitaria respostas corretas em producao.
+
+**Casos do roadmap, atendidos:** `pedido-vago` (o texto do ED-029),
+`ausente-plano-de-saude` (assunto ausente com trecho fraco acima do corte) e
+`chamado-vocabulario-desalinhado` (vocabulario que a base nao tem).
+
+### 5.2.1 Conjunto de avaliacao — o que ficou de fora
 
 Formato por entrada: `question`, `expected_topics`, `expected_sources`,
 `forbidden_claims`. Cerca de 15 a 20 entradas -- suficiente para o relatorio, barato em
@@ -235,10 +258,36 @@ tokens.
   severidade "alta"; a analise, corretamente, nao encontrou nada. Serve para medir se o
   sistema sinaliza o desalinhamento em vez de entregar relatorio vazio.
 
-### 5.3 Calibrar os cortes de relevancia
+### 5.3 Calibrar os limites — **proximo, e nao e trabalho de codigo**
 
-`min_relevant_score` hoje e 0.05 (fake) e 0.35 (`text-embedding-3-small`), derivados de
-poucas medicoes. Com o conjunto de avaliacao, viram numero medido (ED-038).
+O motor esta pronto e os numeros continuam arbitrados: `quality_threshold=0.7`, os pesos
+por dimensao, e o `min_relevant_score` de 0.05 (fake) / 0.35 (`text-embedding-3-small`),
+que vem do V2 (ED-038).
+
+O que falta e **medicao repetida e adjudicacao humana**:
+
+1. Rodar o conjunto com `EMBEDDING_PROVIDER=openai`. As rodadas atuais usaram embeddings
+   lexicais: elas mediram o encanamento, nao a qualidade da recuperacao. O proprio
+   relatorio avisa isso em destaque quando detecta o provedor falso.
+2. Repetir a mesma rodada algumas vezes para medir a **variacao do juiz**. Ela existe
+   mesmo com `temperature=0` (ED-077), e o limite precisa de margem maior que ela --
+   senao o mesmo pedido passa hoje e falha amanha.
+3. Adjudicar caso a caso os tres em que o juiz discorda das assercoes (`senha-sms`,
+   `remoto-exterior`, `reembolso-documentos`): separar "juiz severo demais" de "o sistema
+   citou o trecho errado" exige ler os chunks, e nao ha atalho automatico para isso.
+4. Com isso, ajustar limite e pesos -- e uma dimensao que der perto de 1.00 em todo o
+   conjunto nao esta separando nada e nao merece peso alto.
+
+### 5.4 Fora do escopo do conjunto atual
+
+O conjunto exercita o caminho de **RAG** (`RagService`). Duas coisas ficam sem medicao:
+
+- **A confianca da triagem** do ED-029 -- o `confidence: 0.8` para "pede envio de
+  e-mail." e uma propriedade do `TriageAgent`, e nao da resposta a uma pergunta. Medir
+  exigiria um segundo harness, com casos que declaram faixas esperadas de confianca.
+- **O workflow multiagente inteiro.** Avaliar `/agents/run` sobre o conjunto custaria
+  varias vezes mais por caso e mediria muitas coisas de uma vez; o caminho de RAG isola
+  melhor recuperacao e fundamentacao.
 
 ---
 
@@ -324,3 +373,5 @@ Sem chave de API, o projeto roda por completo com `LLM_PROVIDER=fake` e
 **Cuidado ao trocar de modelo de embedding:** documentos ja indexados com outro modelo
 fazem `/rag/query` devolver `409 embedding_model_mismatch`. Para migrar, apague
 `data/app.db` e `data/chroma` e reenvie os documentos (ED-041).
+
+
