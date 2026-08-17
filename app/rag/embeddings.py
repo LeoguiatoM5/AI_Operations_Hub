@@ -176,11 +176,26 @@ class OpenAIEmbeddingProvider:
 
     @property
     def min_relevant_score(self) -> float:
-        """Medido nesta base: acertos entre 0.59 e 0.77, erros entre 0.38 e 0.42.
+        """0.35, agora **medido** com o conjunto de avaliacao (16 casos, V5.3).
 
-        O padrao de 0.35 e conservador -- corta o ruido evidente sem descartar contexto
-        secundario legitimo. O valor definitivo sai da medicao com o conjunto de
-        avaliacao (V5), nao de intuicao.
+        Distribuicao observada com `text-embedding-3-small`:
+
+        - respostas corretas: melhor similaridade entre **0.477 e 0.767**;
+        - recusas corretas sem nenhum contexto recuperado: 0.000 (o corte filtrou tudo);
+        - recusas corretas COM contexto recuperado: 0.526 e 0.552.
+
+        **O terceiro grupo e o achado que importa.** Ha perguntas que devem ser recusadas
+        cuja melhor similaridade (0.552) e MAIOR que a de perguntas que devem ser
+        respondidas (0.477). Os dois grupos se sobrepoem, e portanto **nenhum corte os
+        separa**: subir para 0.56 excluiria duas respostas legitimas junto com as recusas.
+
+        Consequencia de projeto, e nao ajuste de numero: o corte **nao e** o mecanismo de
+        honestidade do sistema. Ele e um filtro de CUSTO -- evita pagar uma chamada de LLM
+        quando nao ha nada plausivel. Quem garante a honestidade e o contrato
+        `answered=false` do agente de pesquisa, que leu os trechos e concluiu que eles nao
+        respondem a pergunta. Nos dois casos acima foi exatamente isso que aconteceu.
+
+        O 0.35 fica, com 0.127 de margem para a menor similaridade legitima observada.
         """
         return self._min_relevant_score
 

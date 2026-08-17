@@ -1284,21 +1284,103 @@ caracteres existe por causa disso.
 
 ---
 
-## ED-077 — O juiz nao e deterministico, mesmo com temperatura zero
+## ED-077 — A variacao do juiz era ambiguidade da pergunta, nao ruido de amostragem
 
-**Observado.** `reembolso-documentos` recebeu `completeness = 1.00` numa rodada e `0.82`
-na seguinte, com a mesma pergunta, o mesmo corpus e `temperature=0`.
+**O que eu registrei primeiro, e estava errado.** Ao ver `reembolso-documentos` receber
+1.00 numa rodada e 0.82 na seguinte com `temperature=0`, conclui que amostragem gulosa
+ainda varia por detalhes do provedor, e que a calibracao teria de conviver com esse ruido.
 
-**O que isso significa.** `JUDGE_TEMPERATURE = 0.0` reduz a variacao, nao a elimina:
-a amostragem gulosa ainda depende de detalhes de implementacao do provedor. Comparar duas
-rodadas exige tratar diferencas pequenas como ruido, e nao como regressao.
+**A medicao desmentiu.** Tres rodadas sobre 16 casos, apos corrigir os prompts dos juizes:
 
-**Consequencia pratica.** Um limite de qualidade calibrado colado na media do conjunto
-produziria reprovacoes intermitentes -- o mesmo pedido passando hoje e falhando amanha. A
-calibracao precisa deixar margem, e a margem precisa sair da variacao medida entre
-rodadas repetidas, nao de intuicao.
+| | antes | depois |
+|---|---|---|
+| amplitude maxima entre rodadas | 0.182 | **0.000** |
+| casos instaveis | 2 de 16 | **0 de 16** |
+| dimensao instavel | `completeness` (max 0.50) | nenhuma |
 
-**Ainda em aberto.** Tres casos terminam com o juiz discordando das assercoes
-(`senha-sms`, `remoto-exterior`, `reembolso-documentos`). Separar "juiz severo demais" de
-"sistema citou o trecho errado" exige ler os chunks caso a caso -- e e esse trabalho, e
-nao mais codigo, que produz os limites do V5.
+**A causa real.** O juiz nao oscilava por acaso: ele estava genuinamente indeciso, porque
+a tarefa que recebia era ambigua. Corrigida a pergunta, a resposta ficou estavel.
+
+**Licao.** Variacao entre execucoes de um LLM com temperatura zero e, na maioria das
+vezes, sintoma de tarefa mal especificada -- e nao uma propriedade do modelo com a qual se
+deva conviver. Tratar como ruido teria levado a "aumentar a margem do limite", que e
+conviver com o defeito em vez de corrigi-lo.
+
+---
+
+## ED-078 — O juiz de grounding nao recebe a pergunta do usuario
+
+**Como apareceu.** Tres casos terminavam com o juiz discordando das assercoes. Lendo os
+trechos citados, os tres estavam **literalmente** sustentados. As notas do proprio juiz
+entregaram a causa:
+
+- `senha-sms`: nota "O trecho afirma que SMS foi descontinuado" junto de
+  `supported: false` -- a nota confirma a fonte e o veredito a nega;
+- `remoto-exterior`: "O trecho menciona que exige aprovacao, **mas nao afirma se e
+  permitido ou nao**" -- o juiz avaliou se o trecho responde a PERGUNTA, e nao se
+  sustenta a AFIRMACAO.
+
+**Causa no nosso codigo.** `JudgedDimension._judge` envia `task` como mensagem do usuario,
+e o grounding enviava a pergunta original. Isso escorregava o juiz de "o trecho diz isto?"
+para "isto responde bem ao usuario?".
+
+**Decisao.** O juiz de grounding **nao recebe a pergunta**. Fundamentacao e uma relacao
+entre afirmacao e trecho; a pergunta nao participa dela. A mensagem do usuario passou a
+ser uma instrucao fixa, e o prompt ganhou exemplos de veredito e a regra de que a `note`
+precisa concordar com o `supported`.
+
+**Efeito medido.** `senha-sms` 0.27 -> 0.91, `remoto-exterior` 0.64 -> 1.00,
+`reembolso-documentos` 0.82 -> 1.00, e a variacao entre rodadas foi a zero.
+
+**Licao geral.** Contexto a mais num prompt de avaliacao nao e neutro: ele redefine a
+tarefa em silencio. O juiz deve receber exatamente o necessario para a pergunta que ele
+tem de responder, e nada alem.
+
+---
+
+## ED-079 — O corte de relevancia nao separa o que deve ser respondido do que deve ser recusado
+
+**A calibracao que o ED-038 pedia, feita.** Distribuicao medida com
+`text-embedding-3-small` sobre os 16 casos:
+
+| Grupo | Melhor similaridade |
+|---|---|
+| respondeu corretamente | 0.477 a 0.767 |
+| recusou corretamente, sem contexto | 0.000 |
+| recusou corretamente, **com** contexto | 0.526 e 0.552 |
+
+**Os grupos se sobrepoem.** Ha pergunta que deve ser recusada com similaridade 0.552 --
+maior que duas que devem ser respondidas (0.477 e 0.513). Nenhum corte separa os dois:
+subir para 0.56 derrubaria respostas legitimas junto.
+
+**Conclusao, e ela e de projeto.** O corte **nao e** o mecanismo de honestidade. E um
+filtro de custo: evita pagar uma chamada de LLM quando nao ha nada plausivel. Quem
+garante honestidade e o contrato `answered=false` do agente de pesquisa (V2), que le os
+trechos e conclui que eles nao respondem -- e foi exatamente o que aconteceu nos dois
+casos acima.
+
+**O valor fica em 0.35**, agora com evidencia: 0.127 de margem para a menor similaridade
+legitima observada. Nao houve numero a ajustar; houve um numero a entender.
+
+---
+
+## ED-080 — O limite de qualidade fica em 0.7, e o conjunto ainda nao consegue justifica-lo
+
+**Medido.** Apos corrigir os juizes, 15 dos 16 casos pontuam 1.00 e um pontua 0.91, com
+variacao zero entre rodadas.
+
+**O que isso permite concluir.** Um limite de 0.7 tem 0.21 de margem para a pior resposta
+boa observada, e a variacao do medidor e nula -- entao nao ha risco de reprovacao
+intermitente. O valor fica.
+
+**O que isso NAO permite concluir.** Onde esta a fronteira. O conjunto nao tem nenhum caso
+que o sistema responda mal: nao ha exemplo negativo entre 0.0 e 0.91. Um limite so e
+calibravel de verdade com casos proximos da fronteira, e o conjunto atual nao os tem.
+
+**Consequencia honesta:** os pesos por dimensao continuam como estao. Ajusta-los agora
+seria falsa precisao -- com todas as dimensoes em 1.00, nenhum peso muda resultado algum,
+e qualquer alteracao seria justificada por intuicao com aparencia de medicao.
+
+**O que o conjunto precisa ganhar:** respostas degradadas de proposito -- uma que cita
+fonte errada, uma que cobre metade do pedido, uma que se contradiz. So elas dizem onde
+cada dimensao comeca a reprovar.

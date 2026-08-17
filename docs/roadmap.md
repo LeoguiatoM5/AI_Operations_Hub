@@ -3,7 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado durante o **V5** (5.1, 5.2 e o motor completo concluidos).
+Atualizado ao final do **V5**.
 
 ---
 
@@ -15,11 +15,11 @@ Atualizado durante o **V5** (5.1, 5.2 e o motor completo concluidos).
 | V2 | RAG com ChromaDB, ingestao de documentos, consulta com fontes citadas | concluido |
 | V3 | LangGraph, quatro agentes, roteamento por plano, checkpointer persistente | concluido |
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
-| V5 | AI Quality Gateway e AI Evals | **em curso** (motor e conjunto prontos; calibracao pendente) |
+| V5 | AI Quality Gateway e AI Evals | concluido |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
 
-**Numeros:** 518 testes, 97% de cobertura, `ruff` e `mypy` limpos, 77 decisoes
+**Numeros:** 518 testes, 97% de cobertura, `ruff` e `mypy` limpos, 80 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -240,43 +240,40 @@ recusa correta era punida (ED-075) e vereditos legitimos de grounding eram desca
 `ausente-plano-de-saude` (assunto ausente com trecho fraco acima do corte) e
 `chamado-vocabulario-desalinhado` (vocabulario que a base nao tem).
 
-### 5.2.1 Conjunto de avaliacao — o que ficou de fora
+### 5.3 Calibracao — **concluida**
 
-Formato por entrada: `question`, `expected_topics`, `expected_sources`,
-`forbidden_claims`. Cerca de 15 a 20 entradas -- suficiente para o relatorio, barato em
-tokens.
+Tres rodadas com `EMBEDDING_PROVIDER=openai`, adjudicacao dos casos em disputa lendo os
+chunks, e mais tres rodadas de verificacao. Custo total: cerca de US$ 0,05.
 
-**Casos ja identificados que devem entrar no conjunto:**
+**A adjudicacao mudou o trabalho.** Os tres casos em que o juiz discordava das assercoes
+estavam **literalmente** sustentados pelos trechos citados: o sistema estava certo e o
+juiz errado. Nao era severidade a tolerar -- era defeito a corrigir (ED-078). Nao se
+calibra um instrumento quebrado.
 
-- Pergunta vaga ("pede envio de e-mail.") produziu `confidence: 0.8`, alta demais para
-  quatro palavras. Registrado em ED-029, deliberadamente nao corrigido por prompt ate
-  existir medicao.
-- Pergunta sobre assunto ausente da base: verificar que `answered` continua `false`
-  mesmo quando um trecho fraco passa do corte (aconteceu com score 0.3525 contra corte
-  0.35).
-- Vocabulario desalinhado: a tarefa pediu "chamados criticos" e os dados usavam
-  severidade "alta"; a analise, corretamente, nao encontrou nada. Serve para medir se o
-  sistema sinaliza o desalinhamento em vez de entregar relatorio vazio.
+| | antes | depois |
+|---|---|---|
+| amplitude entre rodadas | 0.182 | **0.000** |
+| casos instaveis | 2 de 16 | **0 de 16** |
+| `senha-sms` | 0.27 | 0.91 |
+| `remoto-exterior` | 0.64 | 1.00 |
 
-### 5.3 Calibrar os limites — **proximo, e nao e trabalho de codigo**
+**O que ficou medido:**
 
-O motor esta pronto e os numeros continuam arbitrados: `quality_threshold=0.7`, os pesos
-por dimensao, e o `min_relevant_score` de 0.05 (fake) / 0.35 (`text-embedding-3-small`),
-que vem do V2 (ED-038).
+- **Corte de relevancia: 0.35, e ele nao faz o que se pensava** (ED-079). Respostas
+  corretas ficaram entre 0.477 e 0.767; recusas corretas com contexto, em 0.526 e 0.552.
+  Os grupos se sobrepoem, entao nenhum corte os separa. O corte e filtro de CUSTO; a
+  honestidade vem do contrato `answered=false` do agente.
+- **Limite de qualidade: 0.7 fica** (ED-080), com 0.21 de margem para a pior resposta boa
+  e variacao zero do medidor.
+- **Pesos por dimensao: inalterados.** Com todas as dimensoes em 1.00, nenhum peso muda
+  resultado -- ajusta-los seria falsa precisao.
+- **A variacao do juiz nao era ruido de amostragem** (ED-077), e sim ambiguidade da
+  tarefa. A conclusao anterior estava errada e foi reescrita.
 
-O que falta e **medicao repetida e adjudicacao humana**:
-
-1. Rodar o conjunto com `EMBEDDING_PROVIDER=openai`. As rodadas atuais usaram embeddings
-   lexicais: elas mediram o encanamento, nao a qualidade da recuperacao. O proprio
-   relatorio avisa isso em destaque quando detecta o provedor falso.
-2. Repetir a mesma rodada algumas vezes para medir a **variacao do juiz**. Ela existe
-   mesmo com `temperature=0` (ED-077), e o limite precisa de margem maior que ela --
-   senao o mesmo pedido passa hoje e falha amanha.
-3. Adjudicar caso a caso os tres em que o juiz discorda das assercoes (`senha-sms`,
-   `remoto-exterior`, `reembolso-documentos`): separar "juiz severo demais" de "o sistema
-   citou o trecho errado" exige ler os chunks, e nao ha atalho automatico para isso.
-4. Com isso, ajustar limite e pesos -- e uma dimensao que der perto de 1.00 em todo o
-   conjunto nao esta separando nada e nao merece peso alto.
+**O que o conjunto ainda nao consegue dizer.** Onde esta a fronteira de reprovacao: nao ha
+nenhum caso que o sistema responda mal, entao nao ha exemplo negativo entre 0.0 e 0.91.
+Falta acrescentar respostas degradadas de proposito -- uma que cita fonte errada, uma que
+cobre metade do pedido, uma que se contradiz.
 
 ### 5.4 Fora do escopo do conjunto atual
 
@@ -373,5 +370,7 @@ Sem chave de API, o projeto roda por completo com `LLM_PROVIDER=fake` e
 **Cuidado ao trocar de modelo de embedding:** documentos ja indexados com outro modelo
 fazem `/rag/query` devolver `409 embedding_model_mismatch`. Para migrar, apague
 `data/app.db` e `data/chroma` e reenvie os documentos (ED-041).
+
+
 
 

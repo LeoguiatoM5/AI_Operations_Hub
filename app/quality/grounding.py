@@ -142,7 +142,12 @@ class GroundingDimension(JudgedDimension):
         veredito, response = await self._judge(
             "grounding",
             GroundingVerdict,
-            task=subject.task,
+            # A pergunta do usuario NAO e enviada, de proposito. Enviando-a, o juiz
+            # deslizava de "o trecho diz isto?" para "isto responde bem a pergunta?" -- e
+            # reprovava afirmacoes literalmente presentes no trecho, com notas que
+            # confirmavam a fonte e vereditos que a negavam. Fundamentacao e uma relacao
+            # entre afirmacao e trecho; a pergunta nao participa dela.
+            task="Verifique cada afirmacao contra os trechos fornecidos.",
             sources=self._render_sources(subject),
             claims=self._render_claims(afirmacoes),
         )
