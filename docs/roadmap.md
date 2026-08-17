@@ -3,7 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado ao final do **V5**.
+Atualizado ao final do **V6**.
 
 ---
 
@@ -16,10 +16,10 @@ Atualizado ao final do **V5**.
 | V3 | LangGraph, quatro agentes, roteamento por plano, checkpointer persistente | concluido |
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | concluido |
-| V6 | Servidor MCP | planejado |
+| V6 | Servidor MCP | concluido |
 | V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
 
-**Numeros:** 518 testes, 97% de cobertura, `ruff` e `mypy` limpos, 80 decisoes
+**Numeros:** 529 testes, 97% de cobertura, `ruff` e `mypy` limpos, 81 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -43,6 +43,7 @@ app/
   quality/       motor de qualidade: cinco dimensoes, agregacao, juizes por LLM
   evals/         conjunto de avaliacao: carga, assercoes, runner, relatorio
   models/        SQLAlchemy (Execution, AgentExecution, Document, Approval)
+mcp_server/      servidor MCP: container de dependencias + ferramentas (sem regra propria)
   api/           rotas, deps (injecao), middleware (correlation ID), errors, responses
   schemas/       Pydantic de entrada e saida
 ```
@@ -288,18 +289,32 @@ O conjunto exercita o caminho de **RAG** (`RagService`). Duas coisas ficam sem m
 
 ---
 
-## 6. V6 — Servidor MCP
+## 6. V6 — Servidor MCP — **concluido**
 
-Baixo esforco, alto diferencial: a camada `services/` ja e transporte-agnostica.
+`mcp_server/` expoe o sistema por MCP, em menos de 250 linhas e **sem uma linha de regra
+de negocio**: as ferramentas chamam `RagService`, `WorkflowService` e os repositorios --
+os mesmos que `app/api/routes/` chama.
 
-- `mcp_server/` expondo `search_documents`, `get_execution`, `run_analysis`,
-  `create_report`.
-- Reaproveitar `RagService`, `ExecutionRepository`, `WorkflowService` sem duplicar regra.
-- `docs/mcp.md` explicando: o que e MCP, como funciona, diferenca para uma API REST
-  tradicional, e quando usar cada arquitetura.
+| Ferramenta | Servico adaptado |
+|---|---|
+| `search_knowledge_base` | `RagService.query` |
+| `list_documents` | `DocumentRepository` |
+| `get_execution` | `ExecutionRepository` |
+| `list_pending_approvals` | `ApprovalRepository` |
+| `run_workflow` | `WorkflowService.run` |
 
-O argumento forte para a entrevista ja esta pronto: REST e MCP sao adaptadores sobre a
-mesma camada de servico.
+**A ferramenta que NAO existe e a decisao mais importante do V6.** Nao ha `approve_action`
+(ED-081). Um cliente MCP e um modelo de linguagem: dar a ele o poder de aprovar seria a IA
+autorizando a propria acao, e o human-in-the-loop do V4 viraria teatro. O servidor mostra
+a pendencia para o modelo RELATAR a quem decide; a decisao acontece em
+`POST /approvals/{id}/approve`.
+
+`docs/mcp.md` explica o protocolo, a comparacao com REST e quando usar cada um.
+
+**O que o V6 provou:** o invariante 1 do roadmap -- `services/` nao conhece FastAPI --
+era barato de afirmar e so foi cobrado agora, com um segundo transporte. O que precisou
+ser escrito foi apenas o que o transporte exige: um container de dependencias de vida
+longa (o MCP nao tem request onde pendurar `Depends`) e uma sessao de banco por chamada.
 
 ---
 

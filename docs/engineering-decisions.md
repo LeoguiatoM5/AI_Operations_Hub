@@ -1384,3 +1384,67 @@ e qualquer alteracao seria justificada por intuicao com aparencia de medicao.
 **O que o conjunto precisa ganhar:** respostas degradadas de proposito -- uma que cita
 fonte errada, uma que cobre metade do pedido, uma que se contradiz. So elas dizem onde
 cada dimensao comeca a reprovar.
+
+---
+
+## ED-081 — O servidor MCP nao oferece a ferramenta de aprovar
+
+**Contexto.** O V6 expoe o sistema por MCP. A lista natural de ferramentas incluiria
+`approve_action` e `reject_action` -- afinal, existem os endpoints correspondentes.
+
+**Decisao.** Elas nao existem, e a ausencia e o recurso mais importante do V6.
+
+**Motivo.** Um cliente MCP e um modelo de linguagem. Dar a ele o poder de aprovar
+significaria a IA autorizando a propria acao: o grafo pausaria, o modelo chamaria
+`approve`, nenhum humano participaria, e o human-in-the-loop inteiro do V4 viraria teatro
+com a aparencia de funcionar.
+
+**O que o servidor faz no lugar.** `list_pending_approvals` mostra a pendencia com os
+argumentos exatos, para que o modelo **relate** a quem pode decidir. A resposta traz
+literalmente onde a decisao acontece (`POST /approvals/{id}/approve`), porque o modelo
+precisa saber para onde encaminhar.
+
+**Ha teste afirmando a ausencia** (`test_there_is_no_tool_to_approve_an_action`), e ele
+rejeita qualquer ferramenta futura com `approve` ou `reject` no nome. Testar que algo nao
+existe parece excentrico ate lembrar que "adicionar a ferramenta que faltava" e a mudanca
+mais natural do mundo -- e que aqui ela desmontaria a garantia central do sistema sem que
+nenhum outro teste quebrasse.
+
+**Generalizacao.** Ao expor um sistema a um agente, a pergunta nao e "quais capacidades
+existem?", e sim "quais capacidades este chamador especifico pode ter?". Transporte novo
+nao herda automaticamente a superficie do antigo.
+
+---
+
+## ED-082 — MCP nao tem request, entao as dependencias precisam de um container
+
+**Contexto.** O FastAPI monta dependencias por requisicao com `Depends`. O servidor MCP e
+um processo de vida longa falando por stdio: nao ha request onde pendurar nada.
+
+**Decisao.** `ServiceContainer` guarda o que e caro e de vida longa (engine, providers,
+indice, checkpointer) e entrega **uma sessao de banco por chamada de ferramenta**.
+
+**Motivo da sessao curta.** Cada chamada MCP e uma unidade de trabalho, como um request:
+commit no fim, rollback na excecao. Uma sessao de vida longa acumularia o estado de
+chamadas nao relacionadas, e um erro em qualquer uma delas desfaria o trabalho de todas.
+
+**O container aceita substituicao por campo**, o que permite ao teste rodar o servidor
+inteiro com banco em memoria e provider falso -- o mesmo mecanismo de `create_app()`
+(ED-001). Sem isso, testar MCP exigiria subir um processo e falar o protocolo por pipes.
+
+---
+
+## ED-083 — Em servidor stdio, stdout pertence ao protocolo
+
+**Contexto.** O `configure_logging` do projeto escreve em stdout. No servidor MCP, stdout
+e o canal por onde a conversa acontece.
+
+**Decisao.** `_logs_to_stderr()` troca o destino de todo log antes de o servidor subir.
+
+**Motivo de redirecionar em vez de silenciar.** O cliente MCP costuma mostrar o stderr do
+processo servidor, e e o unico lugar onde o diagnostico apareceria. Desligar o log
+resolveria a corrupcao e criaria um servidor impossivel de depurar.
+
+**Modo de falha se ignorado.** Um `print` ou um log em stdout corrompe uma mensagem do
+protocolo. O sintoma nao e um erro claro: e o cliente desconectando ou ignorando a
+resposta, sem explicacao util.

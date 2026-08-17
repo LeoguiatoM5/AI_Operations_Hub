@@ -29,6 +29,9 @@ dependencies = [
     # (serializador sem `dumps`) nem o aiosqlite 0.22 (sem `is_alive`). Instalam
     # normalmente e quebram em tempo de execucao.
     "langgraph-checkpoint-sqlite>=3.1,<4",
+    # Servidor MCP (V6). Dependencia de producao: `python -m mcp_server` e uma das duas
+    # formas suportadas de usar o sistema, nao um extra opcional.
+    "mcp>=1.2,<2",
 ]
 
 [project.optional-dependencies]
@@ -107,3 +110,4 @@ exclude_also = [
 asyncio_mode = "auto"
 testpaths = ["tests"]
 addopts = "-q --strict-markers"
+
