@@ -67,7 +67,7 @@
     {
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ situacao: 'aguardando aprovacao humana', execution_id: $json.execution_id, approval_id: $json.pending_approval.id, ferramenta: $json.pending_approval.tool, argumentos: $json.pending_approval.arguments, decidir_em: 'POST http://localhost:8000/approvals/' + $json.pending_approval.id + '/approve' }) }}",
+        "responseBody": "={{ JSON.stringify({ situacao: 'aguardando aprovacao humana', execution_id: $json.execution_id, pendencia: $json.pending_approval, decidir_em: 'POST http://localhost:8000/approvals/' + $json.pending_approval.id + '/approve' }) }}",
         "options": {}
       },
       "id": "a1000000-0000-4000-8000-000000000004",
@@ -75,7 +75,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [400, -120],
-      "notes": "Nada foi executado ainda. O resultado final NAO vem por aqui: chega depois no webhook /hub/resultado."
+      "notes": "Nada foi executado ainda. O resultado final NAO vem por aqui: chega depois no webhook /hub/resultado. Devolve o objeto pending_approval inteiro de proposito: escrever $json.pending_approval.arguments quebra com 'Cannot access arguments due to security concerns' -- o sandbox de expressoes do n8n bloqueia esse identificador, que em JavaScript e o objeto de argumentos de funcao."
     },
     {
       "parameters": {

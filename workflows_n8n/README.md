@@ -33,7 +33,12 @@ Os dados ficam em `data/n8n/` -- dentro do projeto e fora do Git.
 
 1. `http://localhost:5678` -> crie a conta local (fica so na sua maquina).
 2. **Workflows** -> **Import from File** -> `workflows_n8n/aprovacao-de-acao.json`.
-3. **Ative** o workflow. Sem ativar, so a URL de teste funciona, e apenas por um disparo.
+3. Clique em **Publish** (botao laranja, canto superior direito) e confirme. Nas versoes
+   recentes do n8n e ele que ativa o workflow -- nao existe mais o toggle *Active*.
+
+   **Enquanto nao publicar, os webhooks respondem 404.** O n8n so registra as URLs de
+   producao na ativacao: antes disso o workflow existe no banco, aparece na lista e nao
+   atende a nada. Para conferir, o `POST` do passo seguinte tem de devolver 200.
 4. Copie a URL de producao do webhook **Resultado do Hub** e ponha no `.env` da API:
 
    ```
