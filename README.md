@@ -127,6 +127,13 @@ de escrita sem passar pela aprovacao -- e ha um teste afirmando que ela nao exis
 
 Novos endpoints entram a cada versao do roadmap.
 
+![Swagger: visao geral da API](docs/images/swagger-visao-geral.jpg)
+
+As rotas que distinguem o projeto -- catalogo de ferramentas com escopo, e a fila de acoes
+esperando decisao humana:
+
+![Swagger: ferramentas e aprovacoes](docs/images/swagger-ferramentas-e-aprovacoes.jpg)
+
 ### Rodar com Docker
 
 A stack inteira -- API e n8n -- sobe com um comando:
@@ -616,6 +623,115 @@ Detalhes internos ficam no log; a resposta nunca expoe stack trace.
 
 **Segredos.** Nenhuma chave de API no codigo ou no repositorio. Toda configuracao passa
 por `app/core/config.py`, validada na inicializacao.
+
+---
+
+## O que eu aprendi
+
+As licoes que custaram mais caro, e o que cada uma mudou no codigo. Todas tem o contexto
+completo em [`docs/engineering-decisions.md`](docs/engineering-decisions.md).
+
+### O medidor tambem precisa ser medido
+
+O conjunto de avaliacao foi construido para medir o sistema. O que ele mediu primeiro foi
+um defeito no **proprio avaliador**: os cinco casos de recusa correta tiraram 0.29 enquanto
+as assercoes deterministicas diziam "certo".
+
+Investigando as notas do juiz, a causa apareceu: ele recebia a pergunta do usuario e
+deslizava de *"o trecho diz isto?"* para *"isto responde bem ao usuario?"*. Uma nota chegou
+a dizer "o trecho afirma que SMS foi descontinuado" junto de `supported: false` -- a
+justificativa negando o veredito.
+
+Corrigido, a variacao entre rodadas repetidas caiu de **0.182 para 0.000**. E isso derrubou
+uma conclusao que eu ja havia registrado: o juiz nao "varia mesmo com temperatura zero". A
+variacao era **ambiguidade da tarefa**. Tratar como ruido teria levado a aumentar a margem
+do limite -- conviver com o defeito em vez de corrigi-lo.
+
+### Um numero arbitrado precisa se declarar arbitrado
+
+O corte de relevancia era 0.35 "por intuicao" desde o V2, e ficou marcado como pendencia
+por tres versoes. Quando finalmente foi medido, a resposta nao foi um numero melhor:
+
+```
+respondeu corretamente ............. 0.477 a 0.767
+recusou corretamente, com contexto . 0.526 e 0.552   ← dentro da faixa acima
+```
+
+Os grupos **se sobrepoem**. Nenhum corte os separa. O corte nunca foi o mecanismo de
+honestidade -- e um filtro de custo, e quem garante honestidade e o contrato do agente. O
+numero nao precisava de ajuste; precisava de entendimento.
+
+### Instrucao em prompt e mais fraca que atalho em codigo
+
+O prompt de `relevance` mandava, com todas as letras, tratar recusa honesta como
+pertinente. O juiz ignorou. A correcao foi um atalho em Python que nem chama o modelo.
+
+Vale a generalizacao: quando o comportamento **precisa** acontecer, ele nao pode depender
+de o modelo obedecer.
+
+### Testar que algo NAO existe
+
+Tres testes deste projeto afirmam ausencias:
+
+- nao ha rota para executar uma ferramenta direto (seria atalho para escrita sem
+  aprovacao);
+- nao ha ferramenta MCP para aprovar (seria a IA autorizando a propria acao);
+- uma execucao sincrona nao dispara o callback (entregaria o resultado duas vezes).
+
+Parece excentrico ate lembrar que "adicionar a funcionalidade que faltava" e a mudanca mais
+natural do mundo -- e que nenhum outro teste quebraria.
+
+### Anotacao de tipo nao e verificada em runtime
+
+`Mapped[ExecutionStatus] = mapped_column(String(32))` declarava um enum e devolvia `str`
+desde o V1. O `mypy` ficava limpo. O defeito so apareceu quando alguem chamou um **metodo**
+do enum, meses depois: todo o codigo anterior so comparava com `==`, e `StrEnum` e
+comparavel a texto.
+
+Onde o dado atravessa uma fronteira -- banco, rede, arquivo -- alguem precisa fazer a
+conversao. "Funciona hoje" pode significar apenas que ninguem usou o tipo como tipo ainda.
+
+### Um passo de CI que nao pode passar e pior que passo nenhum
+
+O plano era rodar o conjunto de avaliacao na CI com provider deterministico. Deu 0 de 16.
+Corrigido o provider falso, foram 7 de 16 -- e os 9 restantes **jamais passariam**: um
+substituto nao entende as perguntas, nao sabe quando recusar nem o que citar.
+
+A saida foi separar "o fluxo roda" de "a resposta e boa". `run_evals.py --smoke` verifica
+o encanamento, que e real e regride de verdade. A medicao de qualidade exige modelo de
+verdade e roda a mao.
+
+### A abstracao que existia por gosto virou plano de contingencia
+
+`VectorStore` e um Protocol com duas implementacoes e teste de contrato -- escrito assim
+por disciplina de projeto, sem necessidade concreta.
+
+Ate o `docker scout` encontrar uma CVE critica de injecao de codigo no ChromaDB, sem versao
+corrigida disponivel. Trocar o banco vetorial passou a ser uma variavel de ambiente, e nao
+uma reescrita. A disciplina de ontem pagou o incidente de hoje.
+
+### Retry automatico e para operacao idempotente
+
+A camada de LLM tem retry com backoff. O notificador do Slack **nao tem**, e a
+inconsistencia e deliberada: um webhook nao aceita chave de idempotencia, e um timeout de
+leitura e indistinguivel de "chegou e a resposta se perdeu". Repetir publicaria duas vezes
+o mesmo aviso num canal que a equipe ja leu.
+
+Leitura repete de graca. Escrita ja aprovada por uma pessoa, nao.
+
+---
+
+## Documentacao
+
+| Documento | O que traz |
+|---|---|
+| [`docs/architecture.md`](docs/architecture.md) | Seis diagramas: a forma do sistema, o grafo de agentes, a aprovacao atravessando um restart, o motor de qualidade |
+| [`docs/engineering-decisions.md`](docs/engineering-decisions.md) | 88 decisoes com o contexto que as motivou e as alternativas descartadas |
+| [`docs/roadmap.md`](docs/roadmap.md) | Estado, invariantes do projeto e pendencias conhecidas |
+| [`docs/mcp.md`](docs/mcp.md) | O que e MCP, comparacao com REST, e a ferramenta que o servidor deliberadamente nao tem |
+| [`docs/security.md`](docs/security.md) | Endurecimento da imagem e as CVEs conhecidas sem correcao |
+| [`docs/portfolio.md`](docs/portfolio.md) | Roteiro de apresentacao e as perguntas mais provaveis |
+| [`evals/reports/latest.md`](evals/reports/latest.md) | Ultima rodada do conjunto de avaliacao |
 
 ---
 

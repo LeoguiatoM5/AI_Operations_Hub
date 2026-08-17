@@ -17,7 +17,7 @@ Atualizado durante o **V7** (Docker e CI concluidos).
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | concluido |
 | V6 | Servidor MCP | concluido |
-| V7 | Docker, CI/CD, observabilidade completa, material de portfolio | **em curso** (Docker e CI prontos) |
+| V7 | Docker, CI/CD e material de portfolio | **em curso** (falta PostgreSQL + Alembic) |
 
 **Numeros:** 555 testes, 97% de cobertura, `ruff` e `mypy` limpos, 87 decisoes
 registradas em `engineering-decisions.md`.
@@ -360,14 +360,22 @@ nao pode passar e pior que passo nenhum.
 Correcao colateral: o provider falso passou a derivar a resposta do schema do prompt
 (ED-087), o que finalmente torna verdadeira a promessa de exercitar o projeto sem chave.
 
-### 7.3 Material de portfolio
+### 7.3 Material de portfolio — **concluido**
 
-- Diagrama de arquitetura (o grafo e o fluxo principal).
-- Screenshots do Swagger e GIF do fluxo n8n.
-- Relatorio de AI Evals commitado em `evals/reports/`.
-- README com `Engineering Decisions` (ja em `docs/engineering-decisions.md`) e
-  `What I learned`.
-- Descricao curta para LinkedIn e roteiro de apresentacao em entrevista.
+- **`docs/architecture.md`** — seis diagramas em Mermaid, e nao imagens: diagrama em
+  `.png` sai de sincronia com o codigo na primeira mudanca e ninguem percebe. Este aparece
+  no diff. Cobre a forma do sistema, o grafo de agentes, a aprovacao atravessando um
+  restart, o motor de qualidade, o fluxo de RAG e o modelo de dados.
+- **`docs/portfolio.md`** — roteiro de apresentacao de 15 minutos, texto para LinkedIn e
+  as cinco perguntas mais provaveis, com resposta.
+- **README com "O que eu aprendi"** — oito licoes, cada uma com o que custou e o que mudou
+  no codigo. Inclui as conclusoes que se provaram erradas e foram reescritas.
+- **Screenshots do Swagger** em `docs/images/`, capturados da stack rodando em container.
+- **Relatorio de avaliacao versionado** em `evals/reports/latest.md`.
+
+**O que ficou de fora:** GIF do fluxo do n8n. Um GIF nao entra no diff, nao e revisavel e
+envelhece em silencio -- os mesmos problemas do diagrama em imagem. O fluxo esta descrito
+em `workflows_n8n/README.md` e o JSON versionado permite reproduzi-lo.
 
 ---
 
@@ -407,6 +415,7 @@ Sem chave de API, o projeto roda por completo com `LLM_PROVIDER=fake` e
 **Cuidado ao trocar de modelo de embedding:** documentos ja indexados com outro modelo
 fazem `/rag/query` devolver `409 embedding_model_mismatch`. Para migrar, apague
 `data/app.db` e `data/chroma` e reenvie os documentos (ED-041).
+
 
 
 
