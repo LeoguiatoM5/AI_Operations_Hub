@@ -9,7 +9,7 @@ do que simplesmente repetir o mesmo pedido.
 """
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from pydantic import BaseModel, ValidationError
@@ -74,8 +74,20 @@ async def complete_structured[T: BaseModel](
     *,
     repair_attempts: int = 1,
     temperature: float | None = None,
+    validate: Callable[[T], None] | None = None,
 ) -> StructuredCompletion[T]:
     """Chama o modelo exigindo JSON e devolve uma instancia validada de `schema`.
+
+    Args:
+        validate: verificacao extra, executada sobre o objeto ja tipado. Deve levantar
+            `ValueError` com uma mensagem acionavel quando reprovar.
+
+            Existe porque nem toda regra cabe no schema. "A ferramenta escolhida precisa
+            existir no catalogo" depende de dados de RUNTIME -- o registro montado para
+            esta execucao -- e um JSON Schema estatico nao tem como express-la. Deixar
+            essa checagem para depois da funcao funcionaria, mas perderia o reparo: o
+            modelo receberia a rejeicao apenas como uma falha, sem chance de corrigir.
+            Injetada aqui, ela usa o MESMO retry dirigido que a validacao de tipos.
 
     Raises:
         LLMResponseFormatError: quando nem a tentativa original nem os reparos
@@ -91,15 +103,25 @@ async def complete_structured[T: BaseModel](
 
         content = strip_code_fences(response.content)
         try:
-            return StructuredCompletion(
-                value=schema.model_validate_json(content),
-                response=_merge_usage(responses),
-                repairs=attempt,
-            )
+            value = schema.model_validate_json(content)
         except ValidationError as error:
             last_error = _describe_validation_error(error)
         except ValueError as error:  # JSON malformado
             last_error = f"O conteudo nao e um JSON valido: {error}"
+        else:
+            try:
+                if validate is not None:
+                    validate(value)
+            except ValueError as error:
+                # Reprovado pela regra de runtime. Cai no mesmo caminho de reparo: a
+                # mensagem volta para o modelo na proxima tentativa.
+                last_error = str(error)
+            else:
+                return StructuredCompletion(
+                    value=value,
+                    response=_merge_usage(responses),
+                    repairs=attempt,
+                )
 
         logger.warning(
             "structured_output_invalid",

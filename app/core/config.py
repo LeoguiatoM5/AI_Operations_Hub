@@ -16,6 +16,7 @@ LogFormat = Literal["console", "json"]
 LLMProviderName = Literal["fake", "openai"]
 EmbeddingProviderName = Literal["fake", "openai"]
 VectorStoreName = Literal["memory", "chroma"]
+NotifierName = Literal["memory", "slack"]
 
 
 class Settings(BaseSettings):
@@ -99,6 +100,25 @@ class Settings(BaseSettings):
     #: Arquivo dos checkpoints do grafo. Separado do banco da aplicacao porque tem outro
     #: dono (a biblioteca), outro ciclo de vida e pode ser descartado sem perder historico.
     checkpoint_path: str = "./data/checkpoints.db"
+
+    # notificacoes
+    #: Canal de saida das acoes de escrita. O padrao guarda a mensagem em memoria em vez
+    #: de envia-la: quem clona o repositorio consegue exercitar o fluxo de aprovacao
+    #: inteiro -- inclusive ver o que "foi enviado" -- sem configurar integracao nenhuma.
+    notifier: NotifierName = "memory"
+    #: A URL do webhook E a credencial: quem a possui publica no canal. `SecretStr`
+    #: impede que ela apareca em log, em repr() ou num dump da configuracao.
+    slack_webhook_url: SecretStr | None = None
+    #: Rotulo do canal configurado no webhook, usado apenas no comprovante de entrega. O
+    #: Slack nao informa qual e o destino: quem sabe e quem criou a integracao.
+    slack_destination: str = Field(default="slack", min_length=1, max_length=64)
+    notifier_timeout_seconds: float = Field(default=10.0, gt=0)
+
+    # callback de resultado
+    #: Para onde enviar o resultado de uma execucao que foi retomada apos aprovacao
+    #: humana. Vazio desliga o callback -- a presenca da URL e o proprio seletor.
+    result_callback_url: str | None = None
+    result_callback_timeout_seconds: float = Field(default=10.0, gt=0)
 
     @model_validator(mode="after")
     def overlap_must_be_smaller_than_chunk(self) -> "Settings":

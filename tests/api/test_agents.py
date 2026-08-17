@@ -117,20 +117,21 @@ async def test_plan_order_is_followed(
     assert body["agents_executed"].index("analysis") < body["agents_executed"].index("research")
 
 
-async def test_unsupported_agent_is_reported_not_silently_dropped(
+async def test_read_only_plan_runs_without_asking_anyone(
     make_client: Callable[[LLMProvider], AsyncClient],
 ) -> None:
-    """`automation` chega no V4. Ate la, quem pediu precisa saber que nao rodou."""
-    script = [
-        triage_json(suggested_agents=["automation"], requires_approval=True),
-        report_json(limitations=["O agente de automacao ainda nao esta disponivel."]),
-    ]
-    client = make_client(FakeLLMProvider(script=script, repeat_last=False))
+    """Nenhum plano de leitura deve encostar no fluxo de aprovacao.
 
-    body = (await client.post("/agents/run", json=TAREFA)).json()
+    O caminho de escrita -- pausa, pendencia, retomada -- vive em `test_approvals.py`.
+    Aqui o que se protege e o oposto: que ele NAO apareca onde nao deve.
+    """
+    client = make_client(FakeLLMProvider(script=roteiro("analysis"), repeat_last=False))
 
-    assert body["agents_skipped"] == ["automation"]
-    assert body["agents_executed"] == ["orchestrator", "reporter"]
+    body = (await client.post("/agents/run", json={**TAREFA, "data": CHAMADOS})).json()
+
+    assert body["status"] == "completed"
+    assert body["pending_approval"] is None
+    assert body["automation"] is None
 
 
 # ---------------------------------------------------------------- resultado

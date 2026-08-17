@@ -10,7 +10,14 @@ from typing import Any
 
 from langgraph.graph import END
 
-from app.workflows.graph import ANALYSIS, REPORTER, RESEARCH, route_next
+from app.workflows.graph import (
+    ANALYSIS,
+    AUTOMATION,
+    AUTOMATION_PLAN,
+    REPORTER,
+    RESEARCH,
+    route_next,
+)
 from app.workflows.state import WorkflowState, initial_state
 
 
@@ -47,12 +54,22 @@ def test_missing_queue_goes_to_the_reporter() -> None:
 
 
 def test_unknown_agents_are_ignored() -> None:
-    """`automation` chega no V4: hoje o roteador nao tem para onde manda-lo."""
-    assert route_next(estado(pending_agents=["automation"])) == REPORTER
+    """Agente que o grafo nao conhece nao tem no de destino: o fluxo segue sem ele."""
+    assert route_next(estado(pending_agents=["telepatia"])) == REPORTER
 
 
 def test_known_agent_after_unknown_is_still_reached() -> None:
-    assert route_next(estado(pending_agents=["automation", ANALYSIS])) == ANALYSIS
+    assert route_next(estado(pending_agents=["telepatia", ANALYSIS])) == ANALYSIS
+
+
+def test_automation_enters_through_the_planning_node() -> None:
+    """A fila fala em AGENTES; o grafo, em NOS. A automacao ocupa dois nos, e o roteador
+    so conhece a porta de entrada -- de dentro dela, o caminho e uma aresta fixa."""
+    assert route_next(estado(pending_agents=[AUTOMATION])) == AUTOMATION_PLAN
+
+
+def test_automation_respects_the_order_of_the_plan() -> None:
+    assert route_next(estado(pending_agents=[ANALYSIS, AUTOMATION])) == ANALYSIS
 
 
 def test_errors_do_not_stop_the_flow() -> None:

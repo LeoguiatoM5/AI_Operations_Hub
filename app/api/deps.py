@@ -19,15 +19,21 @@ from app.agents.triage import TriageAgent
 from app.core.config import Settings
 from app.core.exceptions import ConfigurationError
 from app.db.session import session_scope
+from app.integrations.callback import ResultPublisher
 from app.llm.base import LLMProvider
 from app.rag.base import EmbeddingProvider, VectorStore
 from app.rag.retriever import Retriever
+from app.repositories.approval_repository import ApprovalRepository
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.execution_repository import ExecutionRepository
+from app.services.approval_service import ApprovalService
 from app.services.document_service import DocumentService
 from app.services.execution_service import ExecutionService
 from app.services.rag_service import RagService
 from app.services.workflow_service import WorkflowService
+from app.tools.factory import build_tool_registry
+from app.tools.notify import Notifier
+from app.tools.registry import ToolRegistry
 
 
 def get_app_settings(request: Request) -> Settings:
@@ -58,6 +64,21 @@ def get_vector_store(request: Request) -> VectorStore:
     return cast(VectorStore, request.app.state.vector_store)
 
 
+def get_notifier(request: Request) -> Notifier:
+    """Canal de notificacao construido uma vez no startup.
+
+    Um por processo porque representa uma conexao com um sistema externo -- e, no caso do
+    `MemoryNotifier`, porque o historico do que foi enviado precisa sobreviver ao request
+    que o enviou para ser inspecionavel.
+    """
+    return cast(Notifier, request.app.state.notifier)
+
+
+def get_result_publisher(request: Request) -> ResultPublisher:
+    """Para onde vai o resultado de uma execucao retomada apos aprovacao."""
+    return cast(ResultPublisher, request.app.state.publisher)
+
+
 async def get_session(request: Request) -> AsyncIterator[AsyncSession]:
     """Sessao de banco com transacao por request.
 
@@ -75,6 +96,8 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 LLMProviderDep = Annotated[LLMProvider, Depends(get_llm_provider)]
 EmbeddingProviderDep = Annotated[EmbeddingProvider, Depends(get_embedding_provider)]
 VectorStoreDep = Annotated[VectorStore, Depends(get_vector_store)]
+NotifierDep = Annotated[Notifier, Depends(get_notifier)]
+ResultPublisherDep = Annotated[ResultPublisher, Depends(get_result_publisher)]
 
 
 def get_execution_repository(session: SessionDep) -> ExecutionRepository:
@@ -85,8 +108,13 @@ def get_document_repository(session: SessionDep) -> DocumentRepository:
     return DocumentRepository(session)
 
 
+def get_approval_repository(session: SessionDep) -> ApprovalRepository:
+    return ApprovalRepository(session)
+
+
 ExecutionRepositoryDep = Annotated[ExecutionRepository, Depends(get_execution_repository)]
 DocumentRepositoryDep = Annotated[DocumentRepository, Depends(get_document_repository)]
+ApprovalRepositoryDep = Annotated[ApprovalRepository, Depends(get_approval_repository)]
 
 
 def get_execution_service(
@@ -126,6 +154,19 @@ def get_retriever(
 RetrieverDep = Annotated[Retriever, Depends(get_retriever)]
 
 
+def get_tool_registry(retriever: RetrieverDep, notifier: NotifierDep) -> ToolRegistry:
+    """Catalogo de ferramentas desta requisicao.
+
+    Montado por request, e nao no startup, porque as ferramentas carregam dependencias do
+    request -- o `SearchKnowledgeTool` embrulha o `Retriever`, que por sua vez depende da
+    configuracao efetiva desta instancia. Montar custa a criacao de um dicionario.
+    """
+    return build_tool_registry(retriever=retriever, notifier=notifier)
+
+
+ToolRegistryDep = Annotated[ToolRegistry, Depends(get_tool_registry)]
+
+
 def get_rag_service(
     retriever: RetrieverDep,
     provider: LLMProviderDep,
@@ -163,12 +204,28 @@ def get_workflow_service(
     repository: ExecutionRepositoryDep,
     provider: LLMProviderDep,
     retriever: RetrieverDep,
+    tools: ToolRegistryDep,
+    approvals: ApprovalRepositoryDep,
     checkpointer: CheckpointerDep,
+    publisher: ResultPublisherDep,
 ) -> WorkflowService:
-    return WorkflowService(repository, provider, retriever, checkpointer)
+    return WorkflowService(
+        repository, provider, retriever, tools, approvals, checkpointer, publisher
+    )
+
+
+WorkflowServiceDep = Annotated[WorkflowService, Depends(get_workflow_service)]
+
+
+def get_approval_service(
+    approvals: ApprovalRepositoryDep,
+    executions: ExecutionRepositoryDep,
+    workflows: WorkflowServiceDep,
+) -> ApprovalService:
+    return ApprovalService(approvals, executions, workflows)
 
 
 ExecutionServiceDep = Annotated[ExecutionService, Depends(get_execution_service)]
 DocumentServiceDep = Annotated[DocumentService, Depends(get_document_service)]
 RagServiceDep = Annotated[RagService, Depends(get_rag_service)]
-WorkflowServiceDep = Annotated[WorkflowService, Depends(get_workflow_service)]
+ApprovalServiceDep = Annotated[ApprovalService, Depends(get_approval_service)]

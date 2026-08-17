@@ -14,7 +14,7 @@ from sqlalchemy import JSON, ForeignKey, Index, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.db.types import UtcDateTime, utcnow
+from app.db.types import StrEnumType, UtcDateTime, utcnow
 from app.models.enums import ExecutionStatus
 
 
@@ -39,7 +39,7 @@ class Execution(Base):
 
     request_text: Mapped[str] = mapped_column(String)
     status: Mapped[ExecutionStatus] = mapped_column(
-        String(32), default=ExecutionStatus.PENDING, index=True
+        StrEnumType(ExecutionStatus), default=ExecutionStatus.PENDING, index=True
     )
 
     result: Mapped[dict[str, Any] | None] = mapped_column(JSON)
@@ -96,7 +96,9 @@ class AgentExecution(Base):
 
     agent: Mapped[str] = mapped_column(String(64))
     action: Mapped[str] = mapped_column(String(64))
-    status: Mapped[ExecutionStatus] = mapped_column(String(32), default=ExecutionStatus.PENDING)
+    status: Mapped[ExecutionStatus] = mapped_column(
+        StrEnumType(ExecutionStatus), default=ExecutionStatus.PENDING
+    )
 
     input: Mapped[dict[str, Any] | None] = mapped_column(JSON)
     output: Mapped[dict[str, Any] | None] = mapped_column(JSON)

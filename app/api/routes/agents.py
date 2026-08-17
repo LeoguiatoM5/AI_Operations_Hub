@@ -35,8 +35,12 @@ async def run_agents(
     o problema aparece em `errors` e nas limitacoes do relatorio. Uma resposta parcial
     honesta vale mais que erro sem nada aproveitado. A excecao e o orquestrador -- sem
     plano nao ha o que executar, e a execucao termina como `failed`.
+
+    Se o plano envolver uma acao que altera sistema externo, a execucao para em
+    `waiting_approval` e devolve `pending_approval`. Nada foi executado ainda: o fluxo so
+    continua apos `POST /approvals/{id}/approve`.
     """
-    execution, state = await service.run(
+    execution, state, approval = await service.run(
         task=payload.task, data=payload.data, correlation_id=correlation_id
     )
-    return AgentRunResponse.from_execution(execution, state)
+    return AgentRunResponse.from_execution(execution, state, approval)

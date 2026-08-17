@@ -19,6 +19,14 @@ async def test_health_returns_ok(client: AsyncClient) -> None:
     assert body["uptime_seconds"] >= 0
 
 
+async def test_health_says_where_write_actions_go(client: AsyncClient) -> None:
+    """Uma aprovacao significa coisas diferentes conforme o canal esteja ligado ou nao.
+    Descobrir isso lendo o `.env` do servidor e mais dificil do que deveria."""
+    body = (await client.get("/health")).json()
+
+    assert body["notifier"] == "memory"
+
+
 async def test_correlation_id_is_echoed_when_client_provides_one(client: AsyncClient) -> None:
     response = await client.get("/health", headers={CORRELATION_ID_HEADER: "pedido-123"})
 

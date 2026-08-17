@@ -2,7 +2,7 @@
 
 import operator
 
-from app.workflows.state import EXECUTABLE_AGENTS, initial_state
+from app.workflows.state import EXECUTABLE_AGENTS, initial_state, split_plan
 
 
 def test_initial_state_starts_with_empty_accumulators() -> None:
@@ -34,5 +34,28 @@ def test_reporter_is_not_an_executable_agent_in_the_queue() -> None:
     assert "reporter" not in EXECUTABLE_AGENTS
 
 
-def test_automation_is_not_executable_yet() -> None:
-    assert "automation" not in EXECUTABLE_AGENTS
+def test_automation_is_executable() -> None:
+    """Desde o V4.2 o grafo sabe executar acoes: `automation` saiu de `agents_skipped`."""
+    assert "automation" in EXECUTABLE_AGENTS
+
+
+def test_plan_is_split_into_executable_and_ignored() -> None:
+    pendentes, ignorados = split_plan(["research", "telepatia", "automation"])
+
+    assert pendentes == ["research", "automation"]
+    assert ignorados == ["telepatia"]
+
+
+def test_reporter_never_enters_the_queue_nor_the_ignored_list() -> None:
+    """O relatorio e o destino final. Nem executa como agente da fila, nem e "pulado"."""
+    pendentes, ignorados = split_plan(["analysis", "reporter"])
+
+    assert pendentes == ["analysis"]
+    assert ignorados == []
+
+
+def test_the_order_of_the_plan_is_preserved() -> None:
+    """Quem decide a ordem e o orquestrador: a divisao nao pode reordenar nada."""
+    pendentes, _ = split_plan(["automation", "analysis", "research"])
+
+    assert pendentes == ["automation", "analysis", "research"]

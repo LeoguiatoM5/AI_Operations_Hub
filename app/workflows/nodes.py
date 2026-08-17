@@ -13,7 +13,10 @@ execucao, nao no final: se o processo morrer no meio, o que ja rodou continua vi
 
 from typing import Any
 
+from langgraph.types import interrupt
+
 from app.agents.analysis import AnalysisAgent
+from app.agents.automation import AutomationAgent
 from app.agents.base import AgentOutcome
 from app.agents.reporter import ReporterAgent
 from app.agents.research import ResearchAgent
@@ -24,9 +27,20 @@ from app.models.enums import ExecutionStatus
 from app.models.execution import Execution
 from app.rag.retriever import Retriever
 from app.repositories.execution_repository import ExecutionRepository
-from app.workflows.state import EXECUTABLE_AGENTS, WorkflowState
+from app.tools.registry import ToolRegistry
+from app.workflows.state import WorkflowState, split_plan
 
 logger = get_logger(__name__)
+
+
+def _foi_aprovada(decisao: Any) -> bool:
+    """Interpreta o valor devolvido pela retomada do grafo.
+
+    Estrito de proposito: so um `approved` explicitamente verdadeiro autoriza. Qualquer
+    outra coisa -- `None`, dicionario vazio, formato inesperado -- conta como NAO
+    aprovado. Numa acao irreversivel, a ambiguidade tem que cair para o lado seguro.
+    """
+    return isinstance(decisao, dict) and decisao.get("approved") is True
 
 
 class WorkflowNodes:
@@ -44,16 +58,20 @@ class WorkflowNodes:
         triage: TriageAgent,
         research: ResearchAgent,
         analysis: AnalysisAgent,
+        automation: AutomationAgent,
         reporter: ReporterAgent,
         retriever: Retriever,
+        tools: ToolRegistry,
     ) -> None:
         self._execution = execution
         self._repository = repository
         self._triage = triage
         self._research = research
         self._analysis = analysis
+        self._automation = automation
         self._reporter = reporter
         self._retriever = retriever
+        self._tools = tools
 
     # ------------------------------------------------------------------ orquestrador
 
@@ -70,11 +88,7 @@ class WorkflowNodes:
             }
 
         plano = outcome.payload
-        sugeridos = list(plano.suggested_agents)
-        pendentes = [nome for nome in sugeridos if nome in EXECUTABLE_AGENTS]
-        ignorados = [
-            nome for nome in sugeridos if nome not in EXECUTABLE_AGENTS and nome != "reporter"
-        ]
+        pendentes, ignorados = split_plan(list(plano.suggested_agents))
 
         await self._record(outcome, agent="orchestrator", action="plan")
 
@@ -180,6 +194,138 @@ class WorkflowNodes:
             "completed": ["analysis"],
         }
 
+    # ------------------------------------------------------------------ automacao
+
+    async def automation_plan(self, state: WorkflowState) -> dict[str, Any]:
+        """Escolhe a ferramenta e monta os argumentos. NAO executa nada.
+
+        A separacao entre decidir e executar existe por causa da pausa: a retomada de um
+        `interrupt()` reexecuta o no inteiro, e nao a linha seguinte. Se a escolha
+        estivesse aqui dentro do no que pausa, cada aprovacao pagaria a chamada de LLM de
+        novo e poderia produzir uma acao diferente da que o humano viu.
+        """
+        restante = self._without("automation", state)
+        material = {
+            "dados_de_entrada": state.get("input_data"),
+            "pesquisa": state.get("research"),
+            "analise": state.get("analysis"),
+        }
+
+        try:
+            outcome = await self._automation.run(state["request_text"], material)
+        except AIHubError as error:
+            await self._record_failure("automation", "choose_tool", error)
+            return {
+                "tool_call": None,
+                "errors": [{"agent": "automation", "code": error.code, "message": error.message}],
+                "pending_agents": restante,
+            }
+
+        await self._record(outcome, agent="automation", action=outcome.action)
+        chamada = outcome.payload
+
+        return {
+            "tool_call": {
+                **chamada.model_dump(),
+                # Resolvido aqui, na decisao, e nao na execucao: assim a exigencia de
+                # aprovacao fica gravada no checkpoint junto com a acao. Se o catalogo
+                # mudar entre a pausa e a retomada, vale o que estava valendo quando a
+                # pessoa foi consultada.
+                "requires_approval": self._tools.requires_approval(chamada.tool),
+            },
+            "pending_agents": restante,
+        }
+
+    async def automation_run(self, state: WorkflowState) -> dict[str, Any]:
+        """Executa a acao -- pausando antes, se ela alterar sistema externo.
+
+        `interrupt()` e a PRIMEIRA coisa que acontece quando ha aprovacao a pedir. Tudo
+        que estivesse acima dele rodaria duas vezes: uma na ida, outra na retomada.
+        """
+        chamada = state.get("tool_call")
+        if not chamada:
+            # O planejamento falhou e ja registrou o motivo. Nao ha acao a executar.
+            return {"automation": None}
+
+        if chamada.get("requires_approval"):
+            decisao = interrupt(
+                {
+                    "type": "tool_approval",
+                    "execution_id": state["execution_id"],
+                    "tool": chamada["tool"],
+                    "arguments": chamada["arguments"],
+                    "reason": chamada.get("reason"),
+                }
+            )
+            if not _foi_aprovada(decisao):
+                return await self._record_rejection(chamada, decisao)
+
+        try:
+            resultado = await self._tools.execute(chamada["tool"], chamada["arguments"])
+        except AIHubError as error:
+            await self._record_failure("automation", "execute_tool", error)
+            return {
+                "automation": None,
+                "errors": [{"agent": "automation", "code": error.code, "message": error.message}],
+            }
+
+        await self._repository.add_agent_step(
+            self._execution,
+            agent="automation",
+            action="execute_tool",
+            status=ExecutionStatus.COMPLETED,
+            input_data={"tool": chamada["tool"], "arguments": chamada["arguments"]},
+            output_data=resultado.model_dump(),
+            latency_ms=resultado.latency_ms,
+        )
+        logger.info(
+            "automation_executed",
+            execution_id=state["execution_id"],
+            tool=chamada["tool"],
+            required_approval=bool(chamada.get("requires_approval")),
+        )
+
+        return {
+            "automation": {
+                "executed": True,
+                "tool": chamada["tool"],
+                "summary": resultado.summary,
+                "output": resultado.output,
+            },
+            "completed": ["automation"],
+        }
+
+    async def _record_rejection(self, chamada: dict[str, Any], decisao: Any) -> dict[str, Any]:
+        """Registra uma acao recusada por um humano.
+
+        Recusa NAO e falha: o sistema funcionou exatamente como deveria. Por isso o passo
+        entra como `completed`, com o desfecho no `output` -- gravar como `failed` faria
+        um painel de erros acusar problema toda vez que alguem dissesse "nao".
+        """
+        motivo = decisao.get("reason") if isinstance(decisao, dict) else None
+        quem = decisao.get("decided_by") if isinstance(decisao, dict) else None
+
+        await self._repository.add_agent_step(
+            self._execution,
+            agent="automation",
+            action="execute_tool",
+            status=ExecutionStatus.COMPLETED,
+            input_data={"tool": chamada["tool"], "arguments": chamada["arguments"]},
+            output_data={"executed": False, "rejected": True, "decided_by": quem, "reason": motivo},
+        )
+        logger.info("automation_rejected", tool=chamada["tool"], decided_by=quem)
+
+        return {
+            "automation": {
+                "executed": False,
+                "rejected": True,
+                "tool": chamada["tool"],
+                "decided_by": quem,
+                "reason": motivo,
+            },
+            "completed": ["automation"],
+        }
+
     # ------------------------------------------------------------------ relatorio
 
     async def reporter(self, state: WorkflowState) -> dict[str, Any]:
@@ -189,6 +335,7 @@ class WorkflowNodes:
             "plano": state.get("plan"),
             "pesquisa": state.get("research"),
             "analise": state.get("analysis"),
+            "automacao": state.get("automation"),
             "agentes_com_falha": state.get("errors", []),
             "agentes_nao_executados": state.get("skipped_agents", []),
         }

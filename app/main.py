@@ -16,14 +16,26 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 from app import __version__
 from app.api.errors import register_exception_handlers
 from app.api.middleware import CorrelationIdMiddleware
-from app.api.routes import agents, chat, documents, executions, health, rag
+from app.api.routes import (
+    agents,
+    approvals,
+    chat,
+    documents,
+    executions,
+    health,
+    rag,
+    tools,
+)
 from app.core.config import Settings, get_settings
 from app.core.logging import configure_logging, get_logger
 from app.db.session import create_engine, create_schema, create_session_factory
+from app.integrations.callback import ResultPublisher, build_result_publisher
 from app.llm.base import LLMProvider
 from app.llm.factory import build_llm_provider
 from app.rag.base import EmbeddingProvider, VectorStore
 from app.rag.factory import build_embedding_provider, build_vector_store
+from app.tools.factory import build_notifier
+from app.tools.notify import Notifier
 from app.workflows.checkpointer import create_checkpointer
 
 logger = get_logger(__name__)
@@ -55,6 +67,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await app.state.llm_provider.aclose()
     await app.state.embedding_provider.aclose()
     await app.state.vector_store.aclose()
+    await app.state.notifier.aclose()
+    await app.state.publisher.aclose()
     if checkpoint_connection is not None:
         # O AsyncSqliteSaver nao fecha a conexao, e uma conexao SQLite pendurada mantem
         # o arquivo bloqueado no Windows.
@@ -71,6 +85,8 @@ def create_app(
     embedding_provider: EmbeddingProvider | None = None,
     vector_store: VectorStore | None = None,
     checkpointer: BaseCheckpointSaver[str] | None = None,
+    notifier: Notifier | None = None,
+    publisher: ResultPublisher | None = None,
 ) -> FastAPI:
     """Monta a aplicacao FastAPI.
 
@@ -99,6 +115,8 @@ def create_app(
     app.state.llm_provider = llm_provider or build_llm_provider(settings)
     app.state.embedding_provider = embedding_provider or build_embedding_provider(settings)
     app.state.vector_store = vector_store or build_vector_store(settings)
+    app.state.notifier = notifier or build_notifier(settings)
+    app.state.publisher = publisher or build_result_publisher(settings)
     #: `None` significa "o lifespan cria". Testes injetam um MemorySaver.
     app.state.checkpointer = checkpointer
     app.state.started_at = monotonic()
@@ -112,6 +130,8 @@ def create_app(
     app.include_router(documents.router)
     app.include_router(rag.router)
     app.include_router(agents.router)
+    app.include_router(tools.router)
+    app.include_router(approvals.router)
 
     return app
 

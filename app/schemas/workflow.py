@@ -4,7 +4,9 @@ from typing import Any, Self
 
 from pydantic import BaseModel, Field
 
+from app.models.approval import Approval
 from app.models.execution import Execution
+from app.schemas.approval import ApprovalResponse
 from app.schemas.execution import AgentStepResponse, UsageSummary
 from app.workflows.state import WorkflowState
 
@@ -54,14 +56,24 @@ class AgentRunResponse(BaseModel):
     plan: dict[str, Any] | None = None
     research: dict[str, Any] | None = None
     analysis: dict[str, Any] | None = None
+    automation: dict[str, Any] | None = None
     report: dict[str, Any] | None = None
+
+    #: Presente quando `status` e `waiting_approval`. Sem isto, o cliente receberia uma
+    #: execucao parada e nenhuma indicacao de como faze-la seguir.
+    pending_approval: ApprovalResponse | None = Field(
+        default=None,
+        description="Acao aguardando decisao humana. Decida em POST /approvals/{id}/approve.",
+    )
 
     usage: UsageSummary
     duration_ms: float | None = None
     steps: list[AgentStepResponse] = Field(default_factory=list)
 
     @classmethod
-    def from_execution(cls, execution: Execution, state: WorkflowState) -> Self:
+    def from_execution(
+        cls, execution: Execution, state: WorkflowState, approval: Approval | None = None
+    ) -> Self:
         return cls(
             execution_id=execution.id,
             status=execution.status,
@@ -80,7 +92,9 @@ class AgentRunResponse(BaseModel):
             plan=state.get("plan"),
             research=state.get("research"),
             analysis=state.get("analysis"),
+            automation=state.get("automation"),
             report=state.get("report"),
+            pending_approval=ApprovalResponse.from_model(approval) if approval else None,
             usage=UsageSummary(
                 prompt_tokens=execution.total_prompt_tokens,
                 completion_tokens=execution.total_completion_tokens,

@@ -27,6 +27,24 @@ class ExecutionStatus(StrEnum):
         return self in {ExecutionStatus.COMPLETED, ExecutionStatus.FAILED}
 
 
+class ApprovalStatus(StrEnum):
+    """Decisao humana sobre uma acao de escrita.
+
+    Tres estados e nao dois: `pending` precisa existir como valor gravado, porque e nele
+    que a execucao fica enquanto espera alguem. Modelar aprovacao como um booleano
+    `approved` obrigaria a distinguir "ainda nao decidido" de "recusado" por ausencia --
+    e ausencia nao e um dado que se consulte com seguranca.
+    """
+
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+    @property
+    def is_decided(self) -> bool:
+        return self is not ApprovalStatus.PENDING
+
+
 class DocumentStatus(StrEnum):
     """Ciclo de vida de um documento na base de conhecimento.
 

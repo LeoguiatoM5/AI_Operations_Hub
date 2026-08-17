@@ -13,7 +13,7 @@ from sqlalchemy import JSON, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
-from app.db.types import UtcDateTime, utcnow
+from app.db.types import StrEnumType, UtcDateTime, utcnow
 from app.models.enums import DocumentStatus
 
 
@@ -34,7 +34,7 @@ class Document(Base):
     content_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
 
     status: Mapped[DocumentStatus] = mapped_column(
-        String(16), default=DocumentStatus.PENDING, index=True
+        StrEnumType(DocumentStatus, length=16), default=DocumentStatus.PENDING, index=True
     )
     chunk_count: Mapped[int] = mapped_column(default=0)
 

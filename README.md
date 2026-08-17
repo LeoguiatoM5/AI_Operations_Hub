@@ -30,7 +30,7 @@ qualquer acao de escrita em sistemas externos.
 | **V1** | FastAPI + camada multi-LLM + agente de triagem + persistencia + observabilidade | concluido |
 | **V2** | RAG com ChromaDB, ingestao de documentos, respostas com fontes citadas | concluido |
 | **V3** | LangGraph: quatro agentes, roteamento por plano, checkpointer persistente | concluido |
-| V4 | Integracoes (n8n, Google Sheets, Notion, Slack) e human-in-the-loop | proximo |
+| **V4** | Ferramentas com escopo, human-in-the-loop e integracao com Slack | em curso |
 | V5 | AI Quality Gateway e AI Evals | planejado |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD e observabilidade completa | planejado |
@@ -106,7 +106,7 @@ pytest                # testes
 
 | Metodo | Rota | Descricao |
 |---|---|---|
-| `GET` | `/health` | Estado, versao, ambiente, uptime e provedor de LLM em uso |
+| `GET` | `/health` | Estado, versao, ambiente, uptime, provedor de LLM e canal de saida |
 | `POST` | `/chat` | Processa uma solicitacao em linguagem natural e devolve a execucao completa |
 | `GET` | `/executions` | Lista execucoes com paginacao e filtro por status |
 | `GET` | `/executions/{id}` | Detalha uma execucao com toda a cadeia de agentes |
@@ -116,6 +116,14 @@ pytest                # testes
 | `DELETE` | `/documents/{id}` | Remove o documento e seus trechos do indice |
 | `POST` | `/rag/query` | Responde uma pergunta usando a base, citando as fontes |
 | `POST` | `/agents/run` | Executa o workflow multiagente e devolve o relatorio consolidado |
+| `GET` | `/tools` | Catalogo de ferramentas, com escopo e schema de entrada de cada uma |
+| `GET` | `/approvals` | Fila de acoes de escrita aguardando decisao humana |
+| `GET` | `/approvals/{id}` | Detalha exatamente o que sera executado, para conferencia |
+| `POST` | `/approvals/{id}/approve` | Autoriza a acao e retoma a execucao de onde ela parou |
+| `POST` | `/approvals/{id}/reject` | Recusa a acao e conclui a execucao sem executa-la |
+
+Nao ha rota para executar uma ferramenta diretamente. Seria um atalho para disparar acao
+de escrita sem passar pela aprovacao -- e ha um teste afirmando que ela nao existe.
 
 Novos endpoints entram a cada versao do roadmap.
 
@@ -152,8 +160,8 @@ POST /chat
 ```
 
 O campo `requires_approval` foi decidido pelo modelo: a solicitacao implica **acao de
-escrita visivel para terceiros**. No V4, esse sinal e o que colocara a execucao em
-`waiting_approval` antes de qualquer coisa ser enviada.
+escrita visivel para terceiros**. Desde o V4, quem decide de fato e o escopo declarado
+pela ferramenta escolhida -- o sinal do modelo e uma expectativa, nao a regra.
 
 ### Saida do LLM como dado nao confiavel
 
@@ -234,13 +242,14 @@ START -> orchestrator -+-> research --+
                        +-> END   (plano nao pode ser produzido)
 ```
 
-Quatro agentes, cada um com prompt versionado em arquivo e saida validada por schema:
+Cinco agentes, cada um com prompt versionado em arquivo e saida validada por schema:
 
 | Agente | Responsabilidade | Guarda de coerencia |
 |---|---|---|
 | `orchestrator` | Classifica a solicitacao e monta a fila de agentes | `requires_approval` exige `automation` no plano |
 | `research` | Consulta a base de conhecimento | Citacao fora do intervalo recuperado e rejeitada |
 | `analysis` | Encontra padroes nos dados | Todo achado exige evidencia literal; confianca alta exige achado |
+| `automation` | Escolhe a ferramenta e monta os argumentos | A ferramenta precisa existir e os argumentos precisam satisfazer o schema DELA |
 | `reporter` | Consolida tudo, inclusive o que falhou | Relatorio vazio precisa declarar limitacoes |
 
 ### O caminho e decidido pelo plano, nao pelo codigo
@@ -279,9 +288,10 @@ canais     : plan, pending_agents, analysis, research, report, completed, errors
              branch:to:orchestrator, branch:to:analysis, branch:to:research, ...
 ```
 
-O checkpointer grava o estado apos cada superstep. E isso que vai permitir, no V4,
-pausar em `WAITING_APPROVAL` e retomar do ponto exato -- sem reexecutar os agentes
-anteriores nem pagar os tokens de novo.
+O checkpointer grava o estado apos cada superstep. E o que permite, desde o V4, pausar em
+`WAITING_APPROVAL` e retomar do ponto exato -- sem reexecutar os agentes anteriores nem
+pagar os tokens de novo. Ha um teste que **derruba e recria a aplicacao inteira** entre a
+pausa e a aprovacao para provar que a retomada nao depende do processo original.
 
 ### Custo de uma execucao completa
 
@@ -340,6 +350,13 @@ demonstravel, em vez de afirmada.
 A mesma bateria de 13 testes roda contra `InMemoryVectorStore` e `ChromaVectorStore`.
 E o que sustenta a afirmacao de que trocar de banco vetorial e mudar uma variavel: se o
 Chroma divergir do comportamento de referencia, a suite quebra.
+
+O mesmo vale para os notificadores (`MemoryNotifier` e `SlackNotifier`), e ali o teste ja
+se pagou: ele reprovou a primeira versao do `SlackNotifier`, cuja referencia de entrega
+era derivada so do instante e colidia entre dois envios no mesmo microssegundo. Um
+identificador que colide nao identifica nada -- e o defeito nao apareceria em nenhum
+teste do Slack isolado, porque a exigencia de unicidade e do **contrato**, nao da
+implementacao.
 
 ---
 
@@ -493,17 +510,25 @@ Cada pedido produz uma linha em `executions` e uma linha em `agent_executions` *
 passo de agente**. E essa cadeia que permite responder "por que a IA concluiu isso?" --
 com custo, latencia, tentativas e erro de cada etapa.
 
+O formato do rastro, com uma acao de escrita que passou por aprovacao humana:
+
 ```
 EXECUCAO  9e164013748d4748a5e843b6d9fca3b5
-  status: completed   duracao: 18.1 ms   tokens: 4078   custo: US$ 0.00108330
-  quality score: 87.5
+  status: completed   duracao: 41320.8 ms   tokens: 3874   custo: US$ 0.00092
 ------------------------------------------------------------------------------
-  1. [ok   ] orchestrator  plan                 1420.5 ms   306 tok  tentativas=1
-  2. [ok   ] research      rag_query            2890.1 ms  2152 tok  tentativas=2
-  3. [FALHA] automation    create_notion_page  30000.0 ms     0 tok  tentativas=3
-       erro: integration_timeout — A API do Notion nao respondeu em 30s.
-  4. [ok   ] reporter      write_report         4120.7 ms  1620 tok  tentativas=1
+  1. [ok   ] orchestrator  plan                       1420.5 ms   306 tok  tent.=1
+  2. [ok   ] research      answer_from_knowledge_base 2890.1 ms  2152 tok  tent.=2
+  3. [ok   ] automation    choose_tool                1932.4 ms   412 tok  tent.=1
+        --- pausado em waiting_approval; aprovado por leonardo ---
+  4. [ok   ] automation    execute_tool                284.0 ms     0 tok  tent.=1
+  5. [ok   ] reporter      write_report               4120.7 ms  1004 tok  tent.=1
 ```
+
+A duracao total inclui o tempo em que a execucao ficou parada esperando uma pessoa --
+que e a verdade, e nao um defeito de medicao. `execute_tool` nao consome tokens: e um
+POST, nao uma chamada de LLM. O passo 2 registra `tent.=2` porque a primeira resposta do
+modelo foi rejeitada na validacao e o reparo dirigido corrigiu; o custo das duas
+tentativas esta somado.
 
 | Decisao | Motivo |
 |---|---|

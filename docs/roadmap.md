@@ -3,7 +3,8 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado ao final do **V3**.
+Atualizado durante o **V4** (4.1 a 4.3 concluidas; 4.4 com o Slack pronto e o n8n
+bloqueado em infraestrutura).
 
 ---
 
@@ -14,12 +15,12 @@ Atualizado ao final do **V3**.
 | V1 | FastAPI, camada multi-LLM, agente de triagem, persistencia, observabilidade | concluido |
 | V2 | RAG com ChromaDB, ingestao de documentos, consulta com fontes citadas | concluido |
 | V3 | LangGraph, quatro agentes, roteamento por plano, checkpointer persistente | concluido |
-| V4 | Integracoes externas e human-in-the-loop | **proximo** |
+| V4 | Integracoes externas e human-in-the-loop | **em curso** |
 | V5 | AI Quality Gateway e AI Evals | planejado |
 | V6 | Servidor MCP | planejado |
 | V7 | Docker, CI/CD, observabilidade completa, material de portfolio | planejado |
 
-**Numeros:** 309 testes, 96% de cobertura, `ruff` e `mypy` limpos, 47 decisoes
+**Numeros:** 415 testes, 97% de cobertura, `ruff` e `mypy` limpos, 63 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -34,17 +35,20 @@ app/
   core/          config (pydantic-settings), logging (structlog), excecoes, retry
   llm/           Protocol LLMProvider + OpenAI + fake + retry + pricing + structured
   rag/           embeddings, vector stores (memory/chroma), chunking, loaders, retriever
-  agents/        triage, research, analysis, reporter + prompts/*.md
+  agents/        triage, research, analysis, automation, reporter + prompts/*.md
+  tools/         Protocol Tool + escopo read/write + registro + notify + slack + knowledge
   workflows/     state (TypedDict + reducers), nodes, graph, checkpointer
   services/      execution, document, rag, workflow   <- regra de negocio, sem FastAPI
   repositories/  acesso a dados (execution, document)
-  models/        SQLAlchemy (Execution, AgentExecution, Document)
+  models/        SQLAlchemy (Execution, AgentExecution, Document, Approval)
   api/           rotas, deps (injecao), middleware (correlation ID), errors, responses
   schemas/       Pydantic de entrada e saida
 ```
 
 **Endpoints:** `/health`, `/chat`, `/executions`, `/executions/{id}`,
-`/documents/upload`, `/documents`, `/documents/{id}`, `/rag/query`, `/agents/run`.
+`/documents/upload`, `/documents`, `/documents/{id}`, `/rag/query`, `/agents/run`,
+`/tools`, `/approvals`, `/approvals/{id}`, `/approvals/{id}/approve`,
+`/approvals/{id}/reject`.
 
 ---
 
@@ -71,19 +75,28 @@ Regras que o codigo respeita hoje. Quebra-las exige decisao consciente e registr
    continua (ED-024, ED-045).
 8. Registro de falha e confirmado em transacao propria, antes de a excecao subir (ED-025).
 9. Em codigo assincrono, nenhuma ida ao banco e implicita (ED-018).
+10. Ferramenta declara o proprio escopo, e `write` sempre exige aprovacao humana. A regra
+    existe em um lugar so: `ToolScope.requires_approval` (ED-048).
+11. Dentro de um no que pausa, `interrupt()` e a primeira instrucao com efeito -- tudo
+    acima dele roda duas vezes na retomada (ED-052).
+12. O que e executado apos uma aprovacao e exatamente o que foi mostrado a quem aprovou.
+    Nada e reinterpretado entre a pausa e a retomada.
 
 **Custo e observabilidade**
 
-10. Todo passo grava tokens, custo estimado, latencia, tentativas, provider e modelo.
-11. Tentativas de reparo somam custo; reportar so a ultima esconderia metade (ED-023).
-12. Todo request tem `correlation_id`, propagado ate os logs das bibliotecas.
+13. Todo passo grava tokens, custo estimado, latencia, tentativas, provider e modelo.
+14. Tentativas de reparo somam custo; reportar so a ultima esconderia metade (ED-023).
+15. Todo request tem `correlation_id`, propagado ate os logs das bibliotecas.
+16. Toda autorizacao tem autor e motivo gravados, confirmados antes de a acao rodar
+    (ED-054).
 
 **Testes**
 
-13. A suite nunca chama API paga nem toca disco do projeto.
-14. Componentes com mais de uma implementacao tem **teste de contrato** rodando a mesma
+17. A suite nunca chama API paga nem toca disco do projeto -- exceto
+    `tests/integration/`, onde tocar disco de verdade e o proposito.
+18. Componentes com mais de uma implementacao tem **teste de contrato** rodando a mesma
     bateria contra todas (ver `tests/integration/test_vector_stores.py`).
-15. Substituto de teste que nunca encontra o componente real esconde defeito: o caminho
+19. Substituto de teste que nunca encontra o componente real esconde defeito: o caminho
     de producao precisa de ao menos um teste (ED-047).
 
 ---
@@ -93,47 +106,83 @@ Regras que o codigo respeita hoje. Quebra-las exige decisao consciente e registr
 **Objetivo:** o sistema executa acoes reais em sistemas externos, e nenhuma acao de
 escrita acontece sem aprovacao humana explicita.
 
-### 4.1 Human-in-the-loop
+### 4.1 Registro de ferramentas com escopo — **concluido**
 
-E a peca central, e o que ja esta preparado para ela:
+Veio antes do human-in-the-loop por ordem de dependencia: nao da para pausar para
+aprovar uma acao que ainda nao existe.
 
-- `TriageResult.requires_approval` ja e decidido pelo orquestrador e validado por
-  coerencia (`requires_approval=true` exige `automation` no plano).
-- `ExecutionStatus.WAITING_APPROVAL` ja existe no enum.
-- O checkpointer persistente ja funciona e ja tem teste provando recuperacao de estado
-  por uma segunda instancia (`tests/integration/test_checkpointer.py`).
+- `app/tools/`: Protocol `Tool`, `ToolScope` (`read`/`write`), `ToolRegistry`.
+- A regra de aprovacao mora em `ToolScope.WRITE.requires_approval` e em nenhum outro
+  lugar (ED-048).
+- Duas ferramentas: `search_knowledge_base` (leitura, embrulha o `Retriever`) e
+  `send_notification` (escrita, fala com o Protocol `Notifier`; `MemoryNotifier` e o
+  padrao, o Slack entra em 4.4).
+- `GET /tools` publica o catalogo com `input_schema` -- o mesmo dado que o prompt do
+  agente de automacao e o servidor MCP (V6) vao consumir.
+- Nao existe endpoint de execucao direta, de proposito (ED-051).
 
-A construir:
+### 4.2 Human-in-the-loop — **concluido**
 
-- No `automation` no grafo, precedido de `interrupt()` do LangGraph quando
-  `requires_approval` for verdadeiro.
-- Modelo `Approval` (execucao, acao pretendida, payload, status, decisor, motivo,
-  timestamps).
-- `POST /approvals/{id}/approve` e `/reject`, que retomam o grafo pelo `thread_id`.
-- `GET /approvals` para listar pendencias.
-- Teste que **derruba e recria a aplicacao** entre a pausa e a aprovacao, provando que a
-  retomada nao depende do processo original.
+Criterio de pronto, atendido: uma execucao que pretende enviar mensagem para em
+`waiting_approval`, **sobrevive a um restart completo da aplicacao**, e so executa apos
+`POST /approvals/{id}/approve`.
 
-Criterio de pronto: uma execucao que pretende enviar e-mail para em `waiting_approval`,
-sobrevive a um restart, e so executa apos `POST /approvals/{id}/approve`.
+Como ficou:
 
-### 4.2 Registro de ferramentas com escopo
+- Dois nos, e nao um: `automation_plan` decide a acao, `automation_run` pausa e executa.
+  A separacao existe porque a retomada reexecuta o no inteiro (ED-052).
+- Modelo `Approval` com a acao congelada em JSON: o que foi autorizado fica imutavel no
+  registro, independente do estado do grafo.
+- `GET /approvals`, `GET /approvals/{id}`, `POST /approvals/{id}/approve` e `/reject`.
+  Duas rotas de decisao em vez de um booleano no corpo.
+- A pendencia e criada pelo servico, nao pelo no (ED-053); a decisao e confirmada antes
+  da retomada (ED-054); ambiguidade conta como recusa (ED-055).
+- `tests/integration/test_approval_across_restart.py` derruba app, engine, checkpointer e
+  notificador entre a pausa e a decisao. A mensagem sai por um processo que nunca viu a
+  solicitacao original.
 
-- `ToolRegistry` com cada ferramenta declarando escopo `read` ou `write`.
-- Somente `write` passa por aprovacao. A regra fica no registro, nao espalhada nos nos.
+### 4.3 Agente de automacao — **concluido**
 
-### 4.3 Integracoes
+- `AutomationAgent` recebe `ToolRegistry.specs()` no prompt e devolve um `ToolCall`
+  validado.
+- A checagem contra o catalogo (a ferramenta existe? os argumentos batem com o schema
+  dela?) entra no reparo dirigido do `complete_structured`, e nao depois dele (ED-056).
+  Uma ferramenta alucinada vira uma segunda tentativa com a lista do que existe.
+- `automation` entrou em `EXECUTABLE_AGENTS`. Com isso `agents_skipped` fica vazio para
+  todo plano que a triagem consegue produzir hoje -- a lista continua existindo para o
+  dia em que um agente novo for adicionado ao schema e esquecido no grafo.
 
-Prioridade, por relacao valor/esforco:
+### 4.4 Integracoes
 
-1. **n8n** (self-hosted, docker). Workflow real: webhook -> `/agents/run` -> decisao ->
-   acao -> notificacao. O JSON do workflow entra em `workflows_n8n/`, versionado.
-2. **Slack** via incoming webhook -- a integracao mais barata que existe.
-3. **Google Sheets** via service account (conta de servico, credencial fora do repo).
-4. **Notion** via token de integracao.
+**Slack — concluido.** Segunda implementacao do Protocol `Notifier`, e o momento em que
+`Settings` ganhou o seletor `notifier` -- porque so entao passou a existir escolha.
 
-O Hub e o cerebro; o n8n sao os bracos. Evitar que o n8n vire decorativo: ele precisa
-disparar E receber o resultado.
+- `SlackNotifier` fala HTTP direto com o incoming webhook. Sem SDK, sem OAuth.
+- **Sem retry** (ED-059): webhook nao aceita chave de idempotencia, e repetir pode
+  publicar duas vezes um aviso que a equipe ja leu.
+- A URL do webhook e credencial: `SecretStr`, fora do log e fora de `details` (ED-060).
+- O comprovante devolve o destino REAL, nao o pedido (ED-061). O Protocol vazou, e o
+  vazamento foi documentado no contrato em vez de escondido.
+- Teste de contrato roda a mesma bateria contra os dois notificadores -- e reprovou a
+  primeira versao do `SlackNotifier` (ED-062).
+- `GET /health` passou a dizer qual canal esta ativo: uma aprovacao significa coisas
+  diferentes conforme a mensagem saia de verdade ou fique em memoria.
+
+**n8n — bloqueado em infraestrutura.** Precisa do Docker Desktop no ar e, antes disso, do
+data root movido para outro disco: o C: desta maquina tem ~15 GB livres contra ~188 GB
+no D:. Enquanto isso nao acontecer, escrever o `docker-compose.yml` e o JSON do workflow
+seria produzir artefato que ninguem consegue executar nem validar.
+
+Quando desbloquear: webhook -> `/agents/run` -> decisao -> acao -> notificacao, com o JSON
+do workflow versionado em `workflows_n8n/`. O Hub e o cerebro; o n8n sao os bracos. Evitar
+que o n8n vire decorativo: ele precisa disparar E receber o resultado -- o que exige um
+callback de saida, hoje inexistente.
+
+**Google Sheets e Notion — adiados por avaliacao de valor.** Cada um seria mais uma
+`Tool`, e o mecanismo que elas exercitariam (escopo, aprovacao, execucao, auditoria) ja
+esta provado pelo Slack. Sem credencial configurada, o codigo delas seria nao verificavel:
+tres integracoes sem teste real valem menos que uma com teste de contrato. Entram quando
+houver caso de uso concreto.
 
 Cortado por decisao: Airtable, Make, Zapier (ver README, secao de decisoes).
 
@@ -242,7 +291,11 @@ para isso. Adicionar `gitleaks` para varredura de segredos.
 |---|---|---|
 | Ingestao sincrona | `POST /documents/upload` | Um PDF grande estoura o timeout do cliente. Exige processamento em segundo plano e mudanca no contrato (status `pending` + consulta posterior). |
 | Cortes de relevancia por intuicao | `min_relevant_score` | Vira numero medido no V5. |
-| Agente `automation` ausente | `EXECUTABLE_AGENTS` | Planejado pelo orquestrador, listado em `agents_skipped`. Entra no V4. |
+| Sem tempo limite na pendencia | `Approval` | Uma acao pode ficar `pending` para sempre. Faltam expiracao e uma varredura que a aplique. |
+| Uma pendencia por execucao | `automation_run` | O grafo pausa no maximo uma vez por execucao hoje. Duas acoes de escrita no mesmo plano exigiriam repensar `get_pending_for_execution`. |
+| `decided_by` e texto livre | `POST /approvals/{id}/*` | Consequencia de nao haver autenticacao. Com ela, o campo passa a vir da identidade do request. |
+| Falha do Slack e definitiva | `SlackNotifier.send` | Sem retry por decisao (ED-059). Uma fila com chave de idempotencia resolveria; nao ha fila. |
+| Destino do Slack nao e verificavel | `SLACK_DESTINATION` | Rotulo declarado a mao. O Slack nao expoe o canal do webhook, entao um valor errado passa despercebido. |
 | Sem autenticacao | API inteira | Fora do escopo por decisao. Se entrar, API key estatica em header basta. |
 | Metrica de custo e estimativa | `app/llm/pricing.py` | Tabela mantida a mao; a fatura do provedor e a fonte de verdade. |
 

@@ -28,6 +28,7 @@ import app.models  # registra as tabelas em Base.metadata
 from app.core.config import Settings
 from app.db.base import Base
 from app.db.session import create_session_factory
+from app.integrations.callback import MemoryPublisher
 from app.llm.base import LLMProvider
 from app.llm.fake_provider import FakeLLMProvider
 from app.main import create_app
@@ -36,6 +37,7 @@ from app.rag.memory_store import InMemoryVectorStore
 from app.repositories.document_repository import DocumentRepository
 from app.repositories.execution_repository import ExecutionRepository
 from app.services.document_service import DocumentService
+from app.tools.notify import MemoryNotifier
 
 # --------------------------------------------------------------------- dados de apoio
 
@@ -159,6 +161,18 @@ def vector_store() -> InMemoryVectorStore:
 
 
 @pytest.fixture
+def notifier() -> MemoryNotifier:
+    """Canal de notificacao que guarda o que foi enviado, em vez de enviar."""
+    return MemoryNotifier()
+
+
+@pytest.fixture
+def publisher() -> MemoryPublisher:
+    """Callback que guarda o resultado em vez de envia-lo a um sistema externo."""
+    return MemoryPublisher()
+
+
+@pytest.fixture
 def document_service(
     documents: DocumentRepository,
     embedder: FakeEmbeddingProvider,
@@ -182,6 +196,8 @@ def app(
     provider: FakeLLMProvider,
     embedder: FakeEmbeddingProvider,
     vector_store: InMemoryVectorStore,
+    notifier: MemoryNotifier,
+    publisher: MemoryPublisher,
 ) -> FastAPI:
     return create_app(
         settings,
@@ -189,6 +205,10 @@ def app(
         llm_provider=provider,
         embedding_provider=embedder,
         vector_store=vector_store,
+        # Injetado para que o teste consiga afirmar sobre o que FOI enviado; sem isso,
+        # `create_app` construiria o seu proprio e o teste ficaria cego.
+        notifier=notifier,
+        publisher=publisher,
         # Testes nao executam o lifespan, onde o checkpointer persistente e criado.
         # O MemorySaver da o mesmo comportamento sem tocar em disco.
         checkpointer=MemorySaver(),
@@ -204,7 +224,10 @@ async def client(app: FastAPI) -> AsyncIterator[AsyncClient]:
 
 @pytest.fixture
 async def make_client(
-    settings: Settings, engine: AsyncEngine
+    settings: Settings,
+    engine: AsyncEngine,
+    notifier: MemoryNotifier,
+    publisher: MemoryPublisher,
 ) -> AsyncIterator[Callable[[LLMProvider], AsyncClient]]:
     """Constroi um cliente com um provider especifico.
 
@@ -224,6 +247,10 @@ async def make_client(
             embedding_provider=FakeEmbeddingProvider(),
             vector_store=InMemoryVectorStore(),
             checkpointer=MemorySaver(),
+            # O mesmo notificador da fixture, para que o teste possa afirmar sobre a
+            # mensagem que a ferramenta de escrita entregou -- ou nao entregou.
+            notifier=notifier,
+            publisher=publisher,
         )
         client = AsyncClient(transport=ASGITransport(app=application), base_url="http://testserver")
         created.append(client)

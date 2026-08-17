@@ -1,0 +1,51 @@
+# Stack local de integracao.
+#
+# Hoje sobe apenas o n8n. A API continua rodando no host (`uvicorn --reload`), e isso e
+# deliberado enquanto o projeto esta em desenvolvimento: recarga automatica a cada edicao
+# vale mais que a simetria de ter tudo em container. No V7 a `api`, o `chromadb` e o
+# `postgres` entram aqui e o arranjo passa a ser o mesmo em dev e em producao.
+#
+#   docker compose up -d      sobe o n8n em http://localhost:5678
+#   docker compose logs -f    acompanha
+#   docker compose down       derruba, preservando os dados
+#
+# Os dados ficam em ./data/n8n -- dentro do projeto, que vive no D:, e fora do Git
+# (`data/` esta no .gitignore). Bind mount em vez de volume nomeado de proposito: os
+# workflows que voce criar na interface ficam visiveis no sistema de arquivos, o que
+# permite versionar o JSON exportado sem entrar no container.
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: aiops-n8n
+    restart: unless-stopped
+    ports:
+      - "5678:5678"
+    environment:
+      # Sem HTTPS no ambiente local, o cookie seguro impediria o login na propria
+      # interface. Fora do localhost isto precisa voltar a ser `true`.
+      N8N_SECURE_COOKIE: "false"
+      N8N_HOST: localhost
+      N8N_PORT: "5678"
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      GENERIC_TIMEZONE: America/Sao_Paulo
+      TZ: America/Sao_Paulo
+      # Silencia o aviso de permissao do arquivo de configuracao em bind mount no
+      # Windows, onde o modo 0600 do Linux nao e representavel.
+      N8N_ENFORCE_SETTINGS_FILE_PERMISSIONS: "false"
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "true"
+    volumes:
+      - ./data/n8n:/home/node/.n8n
+    extra_hosts:
+      # Como o n8n alcanca a API rodando no host. No Docker Desktop isso ja existe por
+      # padrao; declarar explicitamente mantem o arquivo valido tambem no Docker de
+      # Linux, onde nao existe.
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:5678/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s

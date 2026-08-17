@@ -13,8 +13,24 @@ no lugar certo.
 import operator
 from typing import Annotated, Any, NotRequired, TypedDict
 
-#: Agentes que o grafo sabe executar hoje. `automation` chega no V4.
-EXECUTABLE_AGENTS = ("research", "analysis")
+#: Agentes que o grafo sabe executar hoje.
+EXECUTABLE_AGENTS = ("research", "analysis", "automation")
+
+
+def split_plan(suggested: list[str]) -> tuple[list[str], list[str]]:
+    """Divide o plano entre o que o grafo executa e o que ele nao sabe executar.
+
+    Funcao pura, fora do no, para que a regra seja testavel sem LLM nem banco. Hoje todo
+    agente que a triagem pode sugerir e executavel -- mas a segunda lista continua
+    existindo, e e o que impede que um agente futuro, adicionado ao schema da triagem e
+    esquecido aqui, desapareca do resultado sem deixar rastro.
+
+    O `reporter` nunca entra na fila: ele e o destino final do grafo, e enfileira-lo
+    criaria um laco.
+    """
+    pendentes = [nome for nome in suggested if nome in EXECUTABLE_AGENTS]
+    ignorados = [nome for nome in suggested if nome not in EXECUTABLE_AGENTS and nome != "reporter"]
+    return pendentes, ignorados
 
 
 class AgentError(TypedDict):
@@ -45,6 +61,13 @@ class WorkflowState(TypedDict):
     research: NotRequired[dict[str, Any] | None]
     analysis: NotRequired[dict[str, Any] | None]
     report: NotRequired[dict[str, Any] | None]
+
+    #: Acao escolhida pelo agente de automacao, ainda NAO executada. Vive no estado (e
+    #: nao numa variavel local do no) porque e ela que atravessa a pausa: o checkpoint
+    #: gravado aqui e o que permite a aprovacao acontecer horas depois, em outro processo.
+    tool_call: NotRequired[dict[str, Any] | None]
+    #: Desfecho da acao: executada, recusada por um humano, ou nao tentada.
+    automation: NotRequired[dict[str, Any] | None]
 
     # --- acumulados
     errors: Annotated[list[AgentError], operator.add]

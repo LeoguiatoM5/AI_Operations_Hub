@@ -729,3 +729,287 @@ implementacoes de `VectorStore` e checa a ordenacao.
 **Motivo.** O cliente do Chroma e sincrono. Chamado direto de uma rota `async`, ele
 bloquearia o event loop durante a busca, travando todos os outros requests em andamento
 -- inclusive os que nem usam RAG.
+
+---
+
+## ED-048 — O escopo e declarado pela ferramenta, nao pelo chamador
+
+**Contexto.** O V4 introduz a primeira acao irreversivel do sistema. Alguem precisa
+decidir o que exige aprovacao humana.
+
+**Alternativa descartada.** O no do grafo informar `requires_approval=True` ao executar.
+Funciona ate a decima ferramenta, quando um no esquece o parametro -- e o esquecimento
+nao quebra teste nenhum, porque o codigo continua correto do ponto de vista de tipos. O
+sintoma seria uma acao irreversivel executada sem autorizacao.
+
+**Decisao.** Cada ferramenta declara `scope: ToolScope` (`read` ou `write`), e
+`ToolScope.WRITE.requires_approval` e o unico lugar do projeto que responde a pergunta.
+Uma ferramenta nova e obrigada a se classificar: nao existe caminho em que ela escape da
+regra por omissao.
+
+**Verificado por teste de contrato** sobre o catalogo inteiro
+(`test_every_registered_tool_is_well_formed`): uma ferramenta futura nasce coberta sem
+que ninguem precise lembrar de escrever outro teste.
+
+---
+
+## ED-049 — Argumentos validados antes de pedir aprovacao
+
+**Contexto.** No fluxo de human-in-the-loop, o grafo pausa, um humano decide, e so entao
+a acao roda. A validacao dos argumentos poderia acontecer em qualquer um dos dois
+momentos.
+
+**Decisao.** `ToolRegistry.validate_input` existe separado de `execute`, e o fluxo de
+aprovacao chama o primeiro **antes** de pausar.
+
+**Motivo.** Pedir a um humano que aprove argumentos que seriam rejeitados depois
+desperdica o tempo dele e deixa no banco um registro aprovado que nunca podera ser
+executado -- um estado que nao corresponde a nada.
+
+**Consequencia aceita.** O payload e validado duas vezes: antes da pausa e de novo na
+retomada. A segunda nao e redundancia: entre uma e outra, os argumentos passam pelo banco
+em JSON, e revalidar na saida fecha a porta para um payload adulterado depois da
+aprovacao.
+
+---
+
+## ED-050 — Falha de ferramenta e excecao, nao resultado com bandeira
+
+**Alternativa descartada.** `ToolResult` com um campo `ok: bool`.
+
+**Decisao.** Sucesso devolve `ToolResult`; falha levanta `ToolExecutionError`. Excecao de
+biblioteca de terceiro e traduzida na fronteira do registro, para que os nos do grafo
+lidem apenas com `AIHubError` -- a mesma disciplina da camada de LLM.
+
+**Motivo.** Um `ok=False` e facil de ignorar por acidente: basta um `resultado.output`
+lido sem checar a bandeira, e o sistema segue como se a acao tivesse acontecido. Numa
+acao de escrita aprovada por um humano, esse silencio e o pior desfecho possivel.
+
+**Excecao consciente.** "A base de conhecimento nao cobre esta consulta" NAO e falha: e
+resultado. `SearchKnowledgeTool` devolve `found: 0` normalmente, mesma regra do no de
+pesquisa do V2.
+
+---
+
+## ED-051 — Nao existe endpoint para executar uma ferramenta
+
+**Decisao.** `GET /tools` publica o catalogo. Nao ha `POST /tools/{nome}/execute`.
+
+**Motivo.** Uma rota de execucao direta seria um atalho para disparar acao de escrita sem
+passar pelo fluxo de aprovacao -- exatamente o que o V4 existe para impedir. Ferramenta
+de escrita so roda por um caminho: plano -> pausa -> aprovacao humana -> retomada.
+
+**Ha um teste afirmando a ausencia** (`test_there_is_no_endpoint_to_execute_a_tool`).
+Testar que algo NAO existe parece excentrico, mas esta rota e o tipo de conveniencia que
+alguem adiciona "so para depurar" e nunca remove.
+
+---
+
+## ED-052 — A automacao sao dois nos, nao um
+
+**Contexto.** O `interrupt()` do LangGraph pausa o grafo dentro de um no. Na retomada, o
+no **inteiro** e reexecutado desde a primeira linha -- e nao a linha seguinte ao
+`interrupt()`.
+
+**Consequencia se ignorada.** Com escolha da ferramenta e execucao no mesmo no, cada
+aprovacao pagaria de novo a chamada de LLM que decidiu a acao. E, muito pior: o modelo
+poderia escolher OUTRA coisa. A pessoa teria autorizado o envio de uma mensagem e o
+sistema enviaria outra.
+
+**Decisao.** `automation_plan` decide e grava no estado; `automation_run` pausa e
+executa. O checkpoint entre os dois congela a acao antes de qualquer humano ver a tela.
+
+**Regra derivada.** Dentro de um no que pausa, `interrupt()` e a primeira instrucao com
+efeito. Tudo acima dele roda duas vezes.
+
+**Verificado por teste** (`test_what_runs_is_exactly_what_was_shown`): compara o que foi
+mostrado na pendencia com o que chegou ao canal, atravessando um restart completo.
+
+---
+
+## ED-053 — Quem registra a pendencia e o servico, nao o no
+
+**Contexto.** A linha em `approvals` poderia nascer dentro do no, junto do `interrupt()`.
+
+**Decisao.** O no apenas pausa. O `WorkflowService` le a interrupcao devolvida pelo
+`ainvoke` e cria a aprovacao.
+
+**Motivo.** Pelo ED-052, o no reexecuta na retomada -- criar a linha la dentro geraria uma
+segunda pendencia para a mesma decisao. Havendo um unico lugar que cria, a idempotencia e
+uma consulta (`get_pending_for_execution`) em vez de uma regra espalhada.
+
+**Efeito colateral desejado.** O no fica sem dependencia do repositorio de aprovacoes: ele
+sabe pausar, nao sabe o que e uma aprovacao.
+
+---
+
+## ED-054 — Decisao gravada e confirmada antes da retomada
+
+**Decisao.** `ApprovalService.decide` grava a decisao, faz `commit`, e so entao retoma o
+grafo.
+
+**Motivo.** Se a ferramenta falhar durante a retomada, o rollback da transacao do request
+levaria embora o registro de quem autorizou o que. A pergunta "quem mandou fazer isso?"
+ficaria sem resposta exatamente no caso em que ela e feita.
+
+**E o mesmo raciocinio do ED-025** (auditoria de falha em transacao propria), aplicado ao
+outro lado: registro que existe para sobreviver a um problema nao pode compartilhar
+transacao com o que pode falhar.
+
+---
+
+## ED-055 — Ambiguidade na decisao conta como recusa
+
+**Decisao.** `_foi_aprovada` so devolve verdadeiro para um dicionario com
+`approved is True`. `None`, dicionario vazio, texto, formato inesperado -- tudo conta como
+NAO aprovado.
+
+**Motivo.** O valor da retomada atravessa serializacao, disco e possivelmente outra versao
+do codigo. Num caminho que termina em acao irreversivel, a duvida tem que cair para o lado
+seguro. Um `bool(decisao)` permissivo transformaria qualquer dicionario nao vazio em
+autorizacao.
+
+---
+
+## ED-056 — Validacao contra o catalogo entra no reparo dirigido
+
+**Contexto.** O agente de automacao escolhe uma ferramenta pelo nome e monta os
+argumentos. Duas regras precisam valer: a ferramenta existe, e os argumentos satisfazem o
+schema DELA. Nenhuma das duas cabe no JSON Schema de `ToolCall` -- dependem do registro
+montado em runtime.
+
+**Alternativa descartada.** Validar depois de `complete_structured`. Funciona, e perde o
+reparo: uma ferramenta alucinada viraria falha do no em vez de uma segunda tentativa.
+
+**Decisao.** `complete_structured` ganhou o parametro `validate`, executado sobre o objeto
+ja tipado dentro do mesmo laco de reparo. Uma escolha incoerente volta ao modelo com o
+motivo exato -- inclusive a lista de ferramentas que de fato existem.
+
+**Generalizacao.** Este e o terceiro tipo de validacao a usar o mesmo mecanismo: tipos
+(ED-022), coerencia interna do objeto (ED-028) e agora coerencia com dados de runtime.
+
+---
+
+## ED-057 — Recusa humana nao e falha do sistema
+
+**Decisao.** Uma acao recusada grava o passo como `completed`, com
+`output.executed: false`, e a execucao termina como `completed`.
+
+**Motivo.** O sistema fez exatamente o que deveria: perguntou e obedeceu. Gravar como
+`failed` faria qualquer painel de erros acusar problema toda vez que uma pessoa dissesse
+"nao" -- e um alerta que dispara no funcionamento correto e um alerta que sera ignorado
+quando importar.
+
+---
+
+## ED-058 — O tipo declarado na coluna precisa ser verdade em runtime
+
+**Como foi descoberto.** `approval.status.is_decided` levantou
+`AttributeError: 'str' object has no attribute 'is_decided'` -- com o mypy limpo.
+
+**Causa.** `Mapped[ExecutionStatus] = mapped_column(String(32))` declara um enum e entrega
+uma `str`: o SQLAlchemy nao converte de volta na leitura. O defeito ficou invisivel desde
+o V1 porque todo o codigo existente so comparava com `==`, e `StrEnum` e comparavel a
+texto. A anotacao mentia havia meses sem que nada quebrasse.
+
+**Decisao.** `StrEnumType`, um `TypeDecorator` que converte nas duas pontas, aplicado a
+todas as colunas de enum (`Execution`, `AgentExecution`, `Document`, `Approval`).
+
+**Alternativa descartada.** O tipo `Enum` do SQLAlchemy grava o NOME do membro
+(`"PENDING"`) e nao o valor (`"pending"`), a menos que se passe `values_callable` -- o que
+mudaria o conteudo ja gravado. O `TypeDecorator` mantem no banco exatamente o mesmo texto:
+a coluna nao muda, so o tipo em Python passa a ser verdade.
+
+**Licao.** Anotacao de tipo nao e verificada em runtime. Onde o dado atravessa uma
+fronteira (banco, rede, arquivo), alguem precisa fazer a conversao -- e "funciona hoje"
+pode significar apenas que ninguem usou o tipo como tipo ainda.
+
+---
+
+## ED-059 — Acao de escrita nao tem retry automatico
+
+**Contexto.** Toda a camada de LLM tem retry com backoff (ED-011). Repetir a chamada do
+notificador seria o comportamento "consistente" -- e estaria errado.
+
+**Decisao.** `SlackNotifier.send` falha na primeira tentativa. Nao ha retry.
+
+**Motivo.** Um incoming webhook nao aceita chave de idempotencia. Um timeout de leitura e
+indistinguivel de "a mensagem chegou e a resposta se perdeu": repetir tem chance real de
+publicar duas vezes o mesmo aviso num canal que a equipe ja leu.
+
+**Alternativa descartada.** Retentar apenas `ConnectError`, que ocorre antes de a
+requisicao sair e portanto seria seguro. Descartada porque essa classificacao depende de
+detalhes do httpx, de proxy e de DNS -- e uma heuristica fragil governando duplicacao de
+mensagem e pior que uma regra simples de entender.
+
+**Regra geral derivada.** Retry automatico e para operacao idempotente. Leitura repete de
+graca; escrita sem chave de idempotencia, nao. Quando a acao ja passou por aprovacao
+humana, o custo de duplicar e maior que o de falhar: a pessoa ainda esta ali para decidir
+de novo.
+
+---
+
+## ED-060 — A URL do webhook e credencial, e e tratada como tal
+
+**Contexto.** `https://hooks.slack.com/services/T.../B.../XXXX` parece um endereco. Nao e:
+quem tem a URL publica no canal.
+
+**Decisao.** Entra como `SecretStr`; nunca aparece em log; nunca entra em `details` de
+excecao.
+
+**O detalhe que quase passou.** `AIHubError.details` **sai no corpo da resposta da API**
+(ver `app/api/errors.py`). Incluir a URL nos detalhes de um erro de conexao -- o reflexo
+natural de quem quer depurar -- entregaria a credencial a quem provocou o erro. Ha um
+teste afirmando que nem a URL nem o host aparecem na excecao.
+
+---
+
+## ED-061 — O comprovante devolve o destino real, nao o pedido
+
+**Contexto.** `NotifyInput.channel` diz para qual canal a mensagem vai. Um incoming
+webhook do Slack ignora isso: o destino fica gravado na propria credencial, do lado do
+Slack, e a aplicacao nao consegue nem consulta-lo.
+
+**Decisao.** `Delivery.channel` devolve o destino configurado, nao o pedido. O canal
+solicitado vira uma linha dentro do texto da mensagem quando difere.
+
+**Motivo.** A alternativa era ecoar o canal pedido no comprovante -- o que funcionaria
+perfeitamente e seria mentira. O comprovante de uma acao que um humano autorizou nao pode
+afirmar um destino que nao aconteceu.
+
+**Licao sobre abstracoes.** O Protocol `Notifier` vazou: nem todo canal roteia por nome. A
+saida nao foi esconder o vazamento, foi documenta-lo no contrato -- a docstring de `send`
+agora diz que `channel` e o destino PEDIDO e que o comprovante pode divergir.
+
+---
+
+## ED-062 — O teste de contrato reprovou a primeira versao do notificador
+
+**O que aconteceu.** `SlackNotifier` gerava a referencia de entrega a partir do instante
+(`slack-20260817T143012.481233`). O teste de contrato
+`test_the_receipt_identifies_each_delivery`, que roda a mesma bateria contra os dois
+notificadores, quebrou: dois envios no mesmo microssegundo produziam a mesma referencia.
+
+**Por que nenhum teste do Slack teria pego.** Unicidade da referencia e exigencia do
+**contrato**, nao da implementacao. Testando o `SlackNotifier` isolado, ninguem escreve
+"envie duas vezes e compare as referencias" -- nao ha motivo aparente para isso.
+
+**Correcao.** Sufixo aleatorio na referencia.
+
+**Argumento.** Teste de contrato nao serve so para provar que o substituto imita o real.
+Ele impoe ao real as exigencias que o substituto tornou obvias.
+
+---
+
+## ED-063 — httpx promovido a dependencia de producao
+
+**Contexto.** `httpx` estava apenas em `[dev]`, para o cliente de teste do FastAPI. O
+`SlackNotifier` fala HTTP direto.
+
+**O que estava errado antes de existir o Slack.** Nada quebrava, porque o SDK da OpenAI
+depende de httpx e o instalava por transitividade. Funcionava por acaso: no dia em que
+aquele SDK trocasse de cliente HTTP, uma instalacao limpa em producao quebraria sem que
+uma linha do nosso codigo tivesse mudado.
+
+**Licao.** Dependencia que o codigo de producao importa vai em `dependencies`, mesmo que
+ja esteja instalada. "Ja vem junto" nao e uma declaracao de dependencia.
