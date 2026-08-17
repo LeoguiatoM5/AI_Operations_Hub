@@ -127,11 +127,30 @@ de escrita sem passar pela aprovacao -- e ha um teste afirmando que ela nao exis
 
 Novos endpoints entram a cada versao do roadmap.
 
-### Automacao com n8n
+### Rodar com Docker
+
+A stack inteira -- API e n8n -- sobe com um comando:
 
 ```powershell
-docker compose up -d      # n8n em http://localhost:5678
+docker compose up -d --build --wait
+curl http://localhost:8000/health
 ```
+
+**O `--wait` nao e opcional na pratica.** Sem ele, `up -d` devolve o controle quando o
+container INICIA, e nao quando a aplicacao comeca a atender. Nessa janela a porta ja
+aceita conexao (o proxy do Docker sobe junto com o container) e o Python ainda nao
+escuta -- o `curl` responde `(52) Empty reply from server`, que parece defeito e e apenas
+pressa. Com `--wait`, o comando so retorna quando os healthchecks passam.
+
+Sem nenhuma configuracao, a stack roda com provider deterministico. Com um `.env`
+preenchido, o compose le as variaveis **do host** e as injeta como ambiente -- o arquivo
+nunca entra na imagem (`.dockerignore`), porque camada de imagem nao se apaga.
+
+A imagem roda como usuario sem privilegio, e o codigo dentro dela pertence ao root: a
+aplicacao le o que executa e nao consegue reescrever. Detalhes, e as CVEs conhecidas sem
+correcao, em [`docs/security.md`](docs/security.md).
+
+### Automacao com n8n
 
 `workflows_n8n/aprovacao-de-acao.json` tem **dois triggers**, e a razao e o coracao do V4:
 uma execucao que pausa para aprovacao termina horas depois, quando ninguem esta mais

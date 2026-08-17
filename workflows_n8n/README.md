@@ -22,7 +22,7 @@ POST /webhook/hub/resultado   <- o Hub publica aqui (RESULT_CALLBACK_URL)
 ## Subir
 
 ```powershell
-docker compose up -d          # n8n em http://localhost:5678
+docker compose up -d --wait   # API e n8n; espera ficarem saudaveis
 docker compose logs -f n8n
 docker compose down           # derruba preservando os dados
 ```

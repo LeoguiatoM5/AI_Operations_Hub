@@ -1536,3 +1536,28 @@ de coerencia em Python que o JSON Schema nao expressa (ED-028). Tres heuristicas
 
 **Coberto por teste que percorre todos os oito schemas do projeto**, incluindo os quatro
 juizes de qualidade. Um schema novo com validador de coerencia nasce coberto.
+
+---
+
+## ED-088 — `docker compose up -d` nao espera a aplicacao atender
+
+**Como apareceu.** `docker compose up -d --build` terminou, e o `curl` seguinte devolveu
+`curl: (52) Empty reply from server`. O log mostrava a aplicacao subindo normalmente e
+respondendo 200 alguns segundos depois.
+
+**Causa.** `up -d` devolve o controle quando o container **inicia**, nao quando a
+aplicacao comeca a atender. Nessa janela o proxy de porta do Docker ja aceita conexao --
+ele sobe junto com o container -- e o processo ainda nao escuta. A conexao e aceita e
+fechada sem resposta.
+
+**Por que o sintoma engana.** `(52) Empty reply` nao e `connection refused`. Quem le
+conclui que o servidor respondeu errado, e vai procurar defeito na aplicacao. A diferenca
+entre os dois codigos e exatamente a diferenca entre "ninguem escuta" e "alguem aceitou e
+desistiu".
+
+**Decisao.** Toda a documentacao usa `--wait`, que so retorna quando os healthchecks
+passam. O healthcheck ja existia; faltava usar o que ele oferece.
+
+**Licao.** Definir healthcheck e metade do trabalho. Ele nao serve so ao orquestrador
+decidir reiniciar um container: serve a quem executa o comando saber quando pode confiar
+no resultado -- e essa metade se perde em silencio se ninguem passar `--wait`.

@@ -1,8 +1,14 @@
 # Stack local completa: a API e o n8n.
 #
-#   docker compose up -d --build     sobe tudo
-#   docker compose logs -f api       acompanha
-#   docker compose down              derruba, preservando os dados
+#   docker compose up -d --build --wait   sobe tudo e ESPERA ficar saudavel
+#   docker compose logs -f api            acompanha
+#   docker compose down                   derruba, preservando os dados
+#
+# **Use `--wait`.** Sem ele, `up -d` devolve o controle assim que o container INICIA, e
+# nao quando a aplicacao comeca a atender. Nessa janela de um ou dois segundos a porta ja
+# aceita conexao -- o proxy do Docker sobe junto com o container -- e o Python ainda nao
+# escuta: o resultado e `curl: (52) Empty reply from server`, que parece defeito e e
+# apenas pressa. Com `--wait`, o comando so retorna quando os healthchecks abaixo passam.
 #
 # Os dados ficam em ./data -- dentro do projeto, que vive no D:, e fora do Git.
 #
