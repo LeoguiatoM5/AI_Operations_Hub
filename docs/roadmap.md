@@ -19,7 +19,7 @@ Atualizado ao final do **V7**.
 | V6 | Servidor MCP | concluido |
 | V7 | Docker, CI/CD, PostgreSQL e material de portfolio | concluido |
 
-**Numeros:** 571 testes, 97% de cobertura, `ruff` e `mypy` limpos, 97 decisoes
+**Numeros:** 571 testes, 97% de cobertura, `ruff` e `mypy` limpos, 99 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -290,6 +290,16 @@ respostas comprovadamente ruins pontuavam 0.76 e teriam passado pelo portao.
 **O conjunto se pagou na primeira rodada**, achando um ponto cego no `consistency`
 (ED-095) -- e a correcao dele revelou, no conjunto principal, que o defeito do ED-078
 existia tambem no juiz de coerencia (ED-096).
+
+**Cinco casos sutis** foram acrescentados depois, do tipo que passa numa leitura rapida:
+parafrase que afrouxa um prazo, numero certo atribuido a coisa errada, condicao omitida,
+quantificador trocado. O juiz de fundamentacao pegou **os quatro com nota 0.00**; o de
+coerencia falhou no quinto (ED-099). As duas unicas falhas do detector ate hoje foram as
+duas em `consistency` -- a dimensao sem referencia externa contra a qual comparar.
+
+**Pendencia declarada:** `consistency` e a dimensao menos confiavel do motor, e a medicao
+sugere revisar seu peso. Com dois casos nao se ajusta peso -- entra na fila de medicao, e
+nao no codigo.
 
 ### 5.4 Fora do escopo do conjunto atual
 

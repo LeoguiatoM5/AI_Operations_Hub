@@ -6,7 +6,9 @@
     "note": "Controle. Sem ele nao ha como saber se o detector reprova tudo -- um juiz que so diz 'ruim' e tao inutil quanto um que so diz 'bom'.",
     "task": "Qual o prazo para solicitar reembolso?",
     "answer": "O prazo para solicitar reembolso e de 30 dias corridos contados da data da despesa.",
-    "claims": ["O prazo para solicitar reembolso e de 30 dias corridos contados da data da despesa."],
+    "claims": [
+      "O prazo para solicitar reembolso e de 30 dias corridos contados da data da despesa."
+    ],
     "sources": [
       {
         "filename": "politica-reembolso.md",
@@ -21,7 +23,9 @@
     "note": "Afirmacao inteiramente ausente do trecho. E o modo de falha mais caro de um RAG: soa fluente, parece plausivel e nao e verificavel.",
     "task": "Qual o prazo para solicitar reembolso?",
     "answer": "O prazo e de 30 dias, prorrogavel por mais 15 mediante aprovacao do gestor.",
-    "claims": ["O prazo pode ser prorrogado por mais 15 dias mediante aprovacao do gestor."],
+    "claims": [
+      "O prazo pode ser prorrogado por mais 15 dias mediante aprovacao do gestor."
+    ],
     "sources": [
       {
         "filename": "politica-reembolso.md",
@@ -36,7 +40,9 @@
     "note": "Numero errado com o resto certo. Mais perigoso que a invencao completa: a frase inteira parece correta, e so o numero esta trocado.",
     "task": "De quanto em quanto tempo a senha expira?",
     "answer": "As senhas corporativas expiram a cada 30 dias.",
-    "claims": ["As senhas corporativas expiram a cada 30 dias."],
+    "claims": [
+      "As senhas corporativas expiram a cada 30 dias."
+    ],
     "sources": [
       {
         "filename": "seguranca-senhas.md",
@@ -69,7 +75,9 @@
     "note": "Responde outra pergunta. Fundamentado e coerente -- e inutil. Sem esta dimensao, uma resposta assim passaria no grounding.",
     "task": "Qual o prazo para solicitar reembolso?",
     "answer": "O periodo aquisitivo de ferias corresponde a doze meses de trabalho, e as ferias podem ser divididas em ate tres periodos.",
-    "claims": ["O periodo aquisitivo corresponde a doze meses de trabalho."],
+    "claims": [
+      "O periodo aquisitivo corresponde a doze meses de trabalho."
+    ],
     "sources": [
       {
         "filename": "politica-ferias.md",
@@ -84,8 +92,13 @@
     "note": "Pedido com dois itens, resposta com um. Cada afirmacao esta sustentada -- o grounding daria 1.00. So a completude pega.",
     "task": "Qual o prazo do reembolso e quais documentos sao exigidos?",
     "answer": "O prazo e de 30 dias corridos contados da data da despesa.",
-    "claims": ["O prazo e de 30 dias corridos contados da data da despesa."],
-    "expected_topics": ["prazo de 30 dias corridos", "nota fiscal e formulario de despesas"],
+    "claims": [
+      "O prazo e de 30 dias corridos contados da data da despesa."
+    ],
+    "expected_topics": [
+      "prazo de 30 dias corridos",
+      "nota fiscal e formulario de despesas"
+    ],
     "sources": [
       {
         "filename": "politica-reembolso.md",
@@ -118,7 +131,95 @@
     "note": "Afirma apoiado na base e nao cita nada. Decidido sem juiz, pelo atalho -- e a prova de que o atalho reprova quando deve.",
     "task": "Qual o prazo para solicitar reembolso?",
     "answer": "O prazo e de 45 dias uteis.",
-    "claims": ["O prazo e de 45 dias uteis."],
+    "claims": [
+      "O prazo e de 45 dias uteis."
+    ],
     "sources": []
+  },
+  {
+    "id": "sutil-parafrase-que-afrouxa",
+    "defect": "grounding",
+    "expect_below": 0.5,
+    "note": "Parafrase que troca precisao por aproximacao: '30 dias corridos' vira 'cerca de um mes'. Nao inventa nada, mas destroi a informacao que faz a regra ser aplicavel -- e o tipo de erro que passa despercebido numa leitura rapida.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "As solicitacoes devem ser enviadas em cerca de um mes apos a despesa.",
+    "claims": [
+      "As solicitacoes devem ser enviadas em cerca de um mes apos a despesa."
+    ],
+    "sources": [
+      {
+        "filename": "politica-reembolso.md",
+        "excerpt": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa."
+      }
+    ]
+  },
+  {
+    "id": "sutil-numero-certo-coisa-errada",
+    "defect": "grounding",
+    "expect_below": 0.5,
+    "note": "O numero EXISTE no trecho, ligado a outra coisa: doze e o comprimento minimo da senha, e nao a periodicidade. Uma verificacao por presenca de numero aprovaria; so ler a frase inteira pega.",
+    "task": "De quanto em quanto tempo a senha expira?",
+    "answer": "As senhas corporativas expiram a cada doze dias.",
+    "claims": [
+      "As senhas corporativas expiram a cada doze dias."
+    ],
+    "sources": [
+      {
+        "filename": "seguranca-senhas.md",
+        "excerpt": "Senhas corporativas expiram a cada noventa dias e nao podem repetir as ultimas cinco utilizadas. O comprimento minimo e de doze caracteres."
+      }
+    ]
+  },
+  {
+    "id": "sutil-condicao-omitida",
+    "defect": "grounding",
+    "expect_below": 0.6,
+    "note": "Afirma o permitido e omite a condicao que o torna permitido. Cada palavra tem respaldo no trecho; o que falta e o que muda a decisao de quem le -- e omissao nao aparece em verificacao por afirmacao presente.",
+    "task": "Posso trabalhar de outro pais?",
+    "answer": "Sim, e permitido trabalhar a partir de outro pais.",
+    "claims": [
+      "E permitido trabalhar a partir de outro pais."
+    ],
+    "sources": [
+      {
+        "filename": "trabalho-remoto.md",
+        "excerpt": "Trabalho a partir de outro pais exige aprovacao previa de juridico e RH, por implicacoes fiscais e trabalhistas, com antecedencia minima de sessenta dias."
+      }
+    ]
+  },
+  {
+    "id": "sutil-quantificador-trocado",
+    "defect": "grounding",
+    "expect_below": 0.6,
+    "note": "Troca 'um deles' por 'cada um': a regra exige que UM periodo tenha quatorze dias, a resposta exige de TODOS. Uma palavra de diferenca, e a politica vira outra.",
+    "task": "Como posso dividir minhas ferias?",
+    "answer": "As ferias podem ser divididas em ate tres periodos, e cada um precisa ter no minimo quatorze dias corridos.",
+    "claims": [
+      "Cada periodo de ferias precisa ter no minimo quatorze dias corridos."
+    ],
+    "sources": [
+      {
+        "filename": "politica-ferias.md",
+        "excerpt": "As ferias podem ser divididas em ate tres periodos, desde que um deles tenha no minimo quatorze dias corridos e os demais nao sejam inferiores a cinco dias."
+      }
+    ]
+  },
+  {
+    "id": "sutil-confianca-sem-lastro",
+    "defect": "consistency",
+    "expect_below": 0.8,
+    "note": "Declara nao ter apurado e conclui com seguranca no mesmo texto. E a contradicao caracteristica de sistema multiagente: um agente registra a limitacao e outro escreve a conclusao, e ninguem compara os dois.",
+    "task": "Quantos chamados criticos houve esta semana?",
+    "answer": "Nao foi possivel apurar o numero exato de chamados criticos nesta semana. A situacao esta claramente sob controle e nao exige acao.",
+    "claims": [
+      "Nao foi possivel apurar o numero exato de chamados criticos nesta semana.",
+      "A situacao esta claramente sob controle e nao exige acao."
+    ],
+    "sources": [
+      {
+        "filename": "suporte-chamados.md",
+        "excerpt": "Chamados sao classificados em quatro severidades: baixa, media, alta e critica."
+      }
+    ]
   }
 ]

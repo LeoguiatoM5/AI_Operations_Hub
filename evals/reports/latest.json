@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-18T00:56:08.212618Z",
+  "generated_at": "2026-08-18T02:11:55.155857Z",
   "llm_provider": "openai",
   "llm_model": "gpt-4o-mini",
   "embedding_provider": "openai",
@@ -13,7 +13,7 @@
       "question": "Qual o prazo para solicitar reembolso de despesas?",
       "note": "Caso base: fato explicito, em um documento so. Se este falhar, o problema esta na recuperacao, nao na sintese.",
       "answered": true,
-      "answer": "Solicitações de reembolso devem ser enviadas em até 30 dias corridos contados da data da despesa.",
+      "answer": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa.",
       "cited_sources": [
         "politica-reembolso.md"
       ],
@@ -51,20 +51,20 @@
               "sources_available": 1,
               "verdicts_discarded": 0
             },
-            "cost_usd": 0.0002136,
-            "tokens": 1217
+            "cost_usd": 0.00021435,
+            "tokens": 1219
           },
           {
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta informa que solicitações de reembolso devem ser enviadas em até 30 dias corridos, que é o que foi perguntado.",
+            "reason": "A resposta fornece a informação direta sobre o prazo para solicitar reembolso de despesas.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.00010395,
-            "tokens": 546
+            "cost_usd": 9.63e-05,
+            "tokens": 534
           },
           {
             "dimension": "completeness",
@@ -77,8 +77,8 @@
               "missing": [],
               "expectations_declared": true
             },
-            "cost_usd": 0.00013095,
-            "tokens": 687
+            "cost_usd": 0.0001317,
+            "tokens": 689
           },
           {
             "dimension": "consistency",
@@ -89,8 +89,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012345,
-            "tokens": 796
+            "cost_usd": 0.00014025,
+            "tokens": 908
           },
           {
             "dimension": "api_reliability",
@@ -102,10 +102,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00057195
+        "cost_usd": 0.0005826
       },
       "best_score": 0.7453,
-      "cost_usd": 0.00077327,
+      "cost_usd": 0.00078452,
       "error": null
     },
     {
@@ -158,13 +158,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta fornece os documentos necessários para solicitar reembolso, que é a informação pedida.",
+            "reason": "A resposta fornece os documentos exigidos para solicitar reembolso, que é a informação pedida.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 9.915e-05,
-            "tokens": 547
+            "cost_usd": 9.975e-05,
+            "tokens": 548
           },
           {
             "dimension": "completeness",
@@ -189,8 +189,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012735,
-            "tokens": 822
+            "cost_usd": 0.00014385,
+            "tokens": 932
           },
           {
             "dimension": "api_reliability",
@@ -202,10 +202,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.000597
+        "cost_usd": 0.0006141
       },
       "best_score": 0.6179,
-      "cost_usd": 0.00076616,
+      "cost_usd": 0.00078326,
       "error": null
     },
     {
@@ -213,7 +213,7 @@
       "question": "Qual o prazo do reembolso e quais documentos sao exigidos?",
       "note": "Pergunta com DOIS itens. Existe para medir completude: uma resposta que traz so o prazo esta certa e incompleta.",
       "answered": true,
-      "answer": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa. Documentos exigidos: nota fiscal legivel em nome da empresa e o formulario de despesas preenchido.",
+      "answer": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa. Documentos exigidos: nota fiscal legivel em nome da empresa e o formulario de despesas preenchido. Comprovante de cartao sozinho nao e aceito.",
       "cited_sources": [
         "politica-reembolso.md"
       ],
@@ -251,20 +251,20 @@
               "sources_available": 1,
               "verdicts_discarded": 0
             },
-            "cost_usd": 0.0002301,
-            "tokens": 1261
+            "cost_usd": 0.0002391,
+            "tokens": 1285
           },
           {
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta fornece informações sobre o prazo para solicitação de reembolso e os documentos exigidos, que são exatamente as informações solicitadas na pergunta.",
+            "reason": "A resposta fornece informações sobre o prazo para solicitação de reembolso e os documentos exigidos, abordando diretamente a pergunta feita.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
             "cost_usd": 0.0001077,
-            "tokens": 571
+            "tokens": 580
           },
           {
             "dimension": "completeness",
@@ -277,8 +277,8 @@
               "missing": [],
               "expectations_declared": true
             },
-            "cost_usd": 0.0001653,
-            "tokens": 769
+            "cost_usd": 0.0001671,
+            "tokens": 781
           },
           {
             "dimension": "consistency",
@@ -289,8 +289,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00013005,
-            "tokens": 840
+            "cost_usd": 0.00015015,
+            "tokens": 974
           },
           {
             "dimension": "api_reliability",
@@ -302,10 +302,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00063315
+        "cost_usd": 0.00066405
       },
-      "best_score": 0.6612,
-      "cost_usd": 0.00087336,
+      "best_score": 0.6613,
+      "cost_usd": 0.00091146,
       "error": null
     },
     {
@@ -358,13 +358,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta explica o que é o período aquisitivo de férias, que é a informação solicitada.",
+            "reason": "A resposta explica o que é o período aquisitivo de férias, que é o que foi perguntado.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.0001005,
-            "tokens": 547
+            "cost_usd": 0.0001011,
+            "tokens": 548
           },
           {
             "dimension": "completeness",
@@ -389,8 +389,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012585,
-            "tokens": 812
+            "cost_usd": 0.00014235,
+            "tokens": 922
           },
           {
             "dimension": "api_reliability",
@@ -402,10 +402,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005697
+        "cost_usd": 0.0005868
       },
       "best_score": 0.7673,
-      "cost_usd": 0.00075459,
+      "cost_usd": 0.00077169,
       "error": null
     },
     {
@@ -489,8 +489,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012705,
-            "tokens": 820
+            "cost_usd": 0.00014355,
+            "tokens": 930
           },
           {
             "dimension": "api_reliability",
@@ -502,10 +502,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0006027
+        "cost_usd": 0.0006192
       },
       "best_score": 0.6577,
-      "cost_usd": 0.00079018,
+      "cost_usd": 0.00080668,
       "error": null
     },
     {
@@ -589,8 +589,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012015,
-            "tokens": 774
+            "cost_usd": 0.00013665,
+            "tokens": 884
           },
           {
             "dimension": "api_reliability",
@@ -602,10 +602,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005526
+        "cost_usd": 0.0005691
       },
       "best_score": 0.6644,
-      "cost_usd": 0.00074919,
+      "cost_usd": 0.00076569,
       "error": null
     },
     {
@@ -613,7 +613,7 @@
       "question": "Posso usar SMS como segundo fator de autenticacao?",
       "note": "A resposta correta e negativa e esta no texto. Mede se o sistema le a negacao em vez de responder o senso comum.",
       "answered": true,
-      "answer": "O SMS foi descontinuado como método de segundo fator de autenticação.",
+      "answer": "O segundo fator de autenticacao e obrigatorio para todos os sistemas que expoem dados de cliente. O aplicativo autenticador e o metodo padrao; SMS foi descontinuado.",
       "cited_sources": [
         "seguranca-senhas.md"
       ],
@@ -635,7 +635,7 @@
         }
       ],
       "quality": {
-        "score": 0.9091,
+        "score": 1.0,
         "passed": true,
         "threshold": 0.85,
         "dimensions": [
@@ -651,36 +651,34 @@
               "sources_available": 1,
               "verdicts_discarded": 0
             },
-            "cost_usd": 0.00021015,
-            "tokens": 1209
+            "cost_usd": 0.0002235,
+            "tokens": 1247
           },
           {
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta informa que o SMS foi descontinuado como método de segundo fator de autenticação, abordando diretamente a pergunta.",
+            "reason": "A resposta informa que SMS foi descontinuado, abordando diretamente a pergunta sobre o uso de SMS como segundo fator de autenticação.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.00010035,
-            "tokens": 534
+            "cost_usd": 0.0001047,
+            "tokens": 557
           },
           {
             "dimension": "completeness",
-            "score": 0.5,
+            "score": 1.0,
             "applicable": true,
-            "reason": "1 de 2 itens nao foram cobertos: aplicativo autenticador",
+            "reason": "Os 2 itens do pedido foram cobertos.",
             "evidence": {
               "items": 2,
-              "covered": 1,
-              "missing": [
-                "aplicativo autenticador"
-              ],
+              "covered": 2,
+              "missing": [],
               "expectations_declared": true
             },
-            "cost_usd": 0.0001458,
-            "tokens": 708
+            "cost_usd": 0.00015015,
+            "tokens": 731
           },
           {
             "dimension": "consistency",
@@ -691,8 +689,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012075,
-            "tokens": 778
+            "cost_usd": 0.00014355,
+            "tokens": 930
           },
           {
             "dimension": "api_reliability",
@@ -704,10 +702,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00057705
+        "cost_usd": 0.0006219
       },
       "best_score": 0.5747,
-      "cost_usd": 0.00071126,
+      "cost_usd": 0.00076871,
       "error": null
     },
     {
@@ -791,8 +789,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012135,
-            "tokens": 782
+            "cost_usd": 0.00013785,
+            "tokens": 892
           },
           {
             "dimension": "api_reliability",
@@ -804,10 +802,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005529
+        "cost_usd": 0.0005694
       },
-      "best_score": 0.4767,
-      "cost_usd": 0.00068458,
+      "best_score": 0.4768,
+      "cost_usd": 0.00070108,
       "error": null
     },
     {
@@ -815,7 +813,7 @@
       "question": "Quantos chamados urgentes estao em aberto agora?",
       "note": "Caso observado no V3: o pedido usa vocabulario que a base nao tem (urgente, e nao critico) e pergunta por dado em tempo real, que a base nao guarda. A resposta honesta e recusar.",
       "answered": false,
-      "answer": "Faltou informação sobre a quantidade de chamados urgentes em aberto.",
+      "answer": "Faltam informações sobre a quantidade de chamados urgentes em aberto.",
       "cited_sources": [],
       "assertions": [
         {
@@ -875,8 +873,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.0001227,
-            "tokens": 791
+            "cost_usd": 0.0001392,
+            "tokens": 901
           },
           {
             "dimension": "api_reliability",
@@ -888,10 +886,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0001227
+        "cost_usd": 0.0001392
       },
-      "best_score": 0.5524,
-      "cost_usd": 0.00027401,
+      "best_score": 0.5522,
+      "cost_usd": 0.00029051,
       "error": null
     },
     {
@@ -944,13 +942,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta informa que o modelo vigente é híbrido e menciona a quantidade mínima de dias presenciais por semana.",
+            "reason": "A resposta informa que o modelo vigente é híbrido, com um mínimo de dois dias presenciais por semana, que é diretamente relevante à pergunta sobre quantos dias ir ao escritório.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.0001005,
-            "tokens": 541
+            "cost_usd": 0.0001083,
+            "tokens": 554
           },
           {
             "dimension": "completeness",
@@ -975,8 +973,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012375,
-            "tokens": 798
+            "cost_usd": 0.00014025,
+            "tokens": 908
           },
           {
             "dimension": "api_reliability",
@@ -988,10 +986,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00055755
+        "cost_usd": 0.00058185
       },
       "best_score": 0.5128,
-      "cost_usd": 0.00076104,
+      "cost_usd": 0.00078534,
       "error": null
     },
     {
@@ -1063,8 +1061,8 @@
               "missing": [],
               "expectations_declared": true
             },
-            "cost_usd": 0.00015135,
-            "tokens": 733
+            "cost_usd": 0.00015915,
+            "tokens": 746
           },
           {
             "dimension": "consistency",
@@ -1075,8 +1073,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00012645,
-            "tokens": 816
+            "cost_usd": 0.00014295,
+            "tokens": 926
           },
           {
             "dimension": "api_reliability",
@@ -1088,10 +1086,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00059385
+        "cost_usd": 0.00061815
       },
       "best_score": 0.5749,
-      "cost_usd": 0.00075571,
+      "cost_usd": 0.00078001,
       "error": null
     },
     {
@@ -1159,8 +1157,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00011685,
-            "tokens": 752
+            "cost_usd": 0.00013335,
+            "tokens": 862
           },
           {
             "dimension": "api_reliability",
@@ -1172,10 +1170,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00011685
+        "cost_usd": 0.00013335
       },
       "best_score": 0.0,
-      "cost_usd": 0.00011711,
+      "cost_usd": 0.00013361,
       "error": null
     },
     {
@@ -1243,8 +1241,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00011685,
-            "tokens": 752
+            "cost_usd": 0.00013335,
+            "tokens": 862
           },
           {
             "dimension": "api_reliability",
@@ -1256,10 +1254,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00011685
+        "cost_usd": 0.00013335
       },
       "best_score": 0.0,
-      "cost_usd": 0.00011713,
+      "cost_usd": 0.00013363,
       "error": null
     },
     {
@@ -1327,8 +1325,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00011685,
-            "tokens": 752
+            "cost_usd": 0.00013335,
+            "tokens": 862
           },
           {
             "dimension": "api_reliability",
@@ -1340,10 +1338,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00011685
+        "cost_usd": 0.00013335
       },
       "best_score": 0.0,
-      "cost_usd": 0.00011719,
+      "cost_usd": 0.00013369,
       "error": null
     },
     {
@@ -1411,8 +1409,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.00011685,
-            "tokens": 752
+            "cost_usd": 0.00013335,
+            "tokens": 862
           },
           {
             "dimension": "api_reliability",
@@ -1424,10 +1422,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00011685
+        "cost_usd": 0.00013335
       },
       "best_score": 0.0,
-      "cost_usd": 0.00011701,
+      "cost_usd": 0.00013351,
       "error": null
     },
     {
@@ -1495,8 +1493,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 0.0001302,
-            "tokens": 841
+            "cost_usd": 0.0001467,
+            "tokens": 951
           },
           {
             "dimension": "api_reliability",
@@ -1508,10 +1506,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0001302
+        "cost_usd": 0.0001467
       },
       "best_score": 0.5256,
-      "cost_usd": 0.00036329,
+      "cost_usd": 0.00037979,
       "error": null
     }
   ],
@@ -1519,9 +1517,9 @@
     "total": 16,
     "passed": 16,
     "pass_rate": 1.0,
-    "cost_usd": 0.008725,
+    "cost_usd": 0.009063,
     "dimension_averages": {
-      "completeness": 0.95,
+      "completeness": 1.0,
       "consistency": 1.0,
       "grounding": 1.0,
       "relevance": 1.0

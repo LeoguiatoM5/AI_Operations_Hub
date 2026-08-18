@@ -1764,3 +1764,59 @@ medida em 0.000 (ED-077).
 defeitos do conjunto sao deliberadamente grosseiros; uma resposta ruim mais sutil pode
 pontuar acima de 0.76 e passar. O caminho para melhorar e mais casos -- e nao outro numero
 escolhido no olho.
+
+---
+
+## ED-098 — Exemplo no prompt vence regra no prompt
+
+**Tres vezes o mesmo padrao, no mesmo projeto:**
+
+| Defeito | A regra ja existia? | O que corrigiu |
+|---|---|---|
+| `relevance` punia recusa correta | sim, explicita | atalho em **codigo** (ED-075) |
+| `consistency` nao via contradicao numerica | nao | **exemplo** no prompt (ED-095) |
+| `consistency` nao via confianca sem lastro | **sim**, em prosa | **exemplo** no prompt |
+
+O terceiro caso e o mais claro. O prompt ja mandava procurar "confianca alta declarada
+sobre um assunto que o proprio material diz nao ter apurado" -- em prosa, na lista de
+regras. O juiz deu 1.00 a um texto que dizia "nao foi possivel apurar" e "a situacao esta
+claramente sob controle" na mesma resposta. Acrescentado **o mesmo caso como exemplo**,
+passou a 0.66.
+
+**A regra estava certa e nao foi aplicada.** O exemplo nao acrescentou informacao nova --
+acrescentou a forma em que o modelo reconhece o padrao.
+
+**Ordem de preferencia que este projeto adota**, do mais forte para o mais fraco:
+
+1. **codigo** -- determinista, gratuito, testavel (os atalhos de `grounding`);
+2. **exemplo no prompt** -- mostra o padrao em vez de descreve-lo;
+3. **regra em prosa** -- so serve para o que os dois primeiros nao alcancam.
+
+Quando o comportamento **precisa** acontecer, prosa nao basta.
+
+---
+
+## ED-099 — O juiz de fundamentacao aguentou os casos sutis; o de coerencia, nao
+
+**Cinco defeitos sutis** foram acrescentados ao conjunto do detector, escolhidos por serem
+o tipo que passa numa leitura rapida:
+
+| Caso | Nota |
+|---|---|
+| parafrase que afrouxa ("30 dias corridos" -> "cerca de um mes") | 0.00 |
+| numero certo na coisa errada (doze e o tamanho da senha, nao o prazo) | 0.00 |
+| condicao omitida (afirma o permitido, cala a exigencia de aprovacao) | 0.00 |
+| quantificador trocado ("um deles" -> "cada um") | 0.00 |
+| confianca sem lastro | **1.00 -- nao detectou** |
+
+**Quatro de cinco pegos com nota zero.** O juiz de fundamentacao aguenta sutileza porque a
+tarefa dele e comparar duas coisas concretas: uma afirmacao e um trecho. E verificacao,
+nao julgamento.
+
+**A coerencia e mais dificil por natureza.** Nao ha trecho contra o qual comparar: o juiz
+precisa notar que duas partes do mesmo texto nao podem valer juntas, sem nenhuma
+referencia externa. As duas falhas do detector ate agora foram as duas em `consistency`.
+
+**Consequencia para os pesos.** A medicao sugere que `grounding` merece o peso alto que
+tem, e que `consistency` e a dimensao menos confiavel do motor -- mas com dois casos nao
+se ajusta peso. Fica registrado como a proxima coisa a medir, e nao como ajuste feito.

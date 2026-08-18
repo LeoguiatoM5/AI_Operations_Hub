@@ -1,6 +1,6 @@
 # Relatorio de avaliacao
 
-**Gerado em:** 2026-08-18 00:56:08 UTC
+**Gerado em:** 2026-08-18 02:11:55 UTC
 
 | Configuracao | Valor |
 |---|---|
@@ -13,13 +13,13 @@
 
 - **Casos:** 16
 - **Assercoes aprovadas:** 16/16 (100%)
-- **Custo da rodada:** US$ 0.008725
+- **Custo da rodada:** US$ 0.009063
 
 ### Media por dimensao
 
 | Dimensao | Media |
 |---|---|
-| `completeness` | 0.950 |
+| `completeness` | 1.000 |
 | `consistency` | 1.000 |
 | `grounding` | 1.000 |
 | `relevance` | 1.000 |
@@ -34,7 +34,7 @@
 | `ferias-periodo-aquisitivo` | ok | 1.00 |  |
 | `ferias-divisao` | ok | 1.00 |  |
 | `senha-expiracao` | ok | 1.00 |  |
-| `senha-sms` | ok | 0.91 |  |
+| `senha-sms` | ok | 1.00 |  |
 | `chamado-critico-prazo` | ok | 1.00 |  |
 | `chamado-vocabulario-desalinhado` | ok | 1.00 |  |
 | `remoto-dias-presenciais` | ok | 1.00 |  |

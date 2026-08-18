@@ -31,6 +31,13 @@ Material: "Foram encontrados 3 chamados criticos." / "Nenhum chamado critico foi
 identificado."
 → **contradicao**: as duas contagens nao podem valer juntas.
 
+Material: "Nao foi possivel apurar o numero de chamados." / "A situacao esta claramente
+sob controle e nao exige acao."
+→ **contradicao**: quem nao apurou nao pode concluir com seguranca sobre o que nao apurou.
+Declarar a limitacao e depois afirmar com confianca sao coisas que nao valem juntas --
+esta e a contradicao mais comum em material escrito por varios agentes, e a mais facil de
+deixar passar, porque as duas frases parecem razoaveis isoladamente.
+
 ## Material produzido
 
 {material}
