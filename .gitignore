@@ -48,3 +48,4 @@ evals/reports/*.md
 # medicao sem precisar rodar nada (e sem precisar de chave de API).
 !evals/reports/latest.md
 !evals/reports/latest.json
+!evals/reports/detector.md

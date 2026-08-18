@@ -19,7 +19,7 @@ Atualizado ao final do **V7**.
 | V6 | Servidor MCP | concluido |
 | V7 | Docker, CI/CD, PostgreSQL e material de portfolio | concluido |
 
-**Numeros:** 559 testes, 97% de cobertura, `ruff` e `mypy` limpos, 93 decisoes
+**Numeros:** 571 testes, 97% de cobertura, `ruff` e `mypy` limpos, 97 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -271,10 +271,25 @@ calibra um instrumento quebrado.
 - **A variacao do juiz nao era ruido de amostragem** (ED-077), e sim ambiguidade da
   tarefa. A conclusao anterior estava errada e foi reescrita.
 
-**O que o conjunto ainda nao consegue dizer.** Onde esta a fronteira de reprovacao: nao ha
-nenhum caso que o sistema responda mal, entao nao ha exemplo negativo entre 0.0 e 0.91.
-Falta acrescentar respostas degradadas de proposito -- uma que cita fonte errada, uma que
-cobre metade do pedido, uma que se contradiz.
+### 5.5 Sensibilidade do detector — **concluida**
+
+O buraco acima foi fechado: `evals/detector_cases.json` traz oito respostas com defeito
+**conhecido**, escritas a mao, que nao passam pelo sistema -- medem o motor de qualidade
+(ED-094). Rode com `python run_evals.py --detector`.
+
+Com isso, o limite deixou de ser arbitrado (ED-097):
+
+| | faixa medida |
+|---|---|
+| respostas boas | 0.91 a 1.00 |
+| respostas ruins | 0.39 a **0.76** |
+
+**`QUALITY_THRESHOLD` foi de 0.7 para 0.85.** O valor anterior nao era so impreciso: duas
+respostas comprovadamente ruins pontuavam 0.76 e teriam passado pelo portao.
+
+**O conjunto se pagou na primeira rodada**, achando um ponto cego no `consistency`
+(ED-095) -- e a correcao dele revelou, no conjunto principal, que o defeito do ED-078
+existia tambem no juiz de coerencia (ED-096).
 
 ### 5.4 Fora do escopo do conjunto atual
 
@@ -443,3 +458,4 @@ workflow real e gravou a cadeia de agentes -- consultada depois por `psql`.
 unica cabeca.
 
 ---
+

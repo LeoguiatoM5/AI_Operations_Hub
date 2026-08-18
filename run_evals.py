@@ -34,6 +34,7 @@ from app.core.logging import configure_logging
 from app.db.base import Base
 from app.db.session import create_session_factory
 from app.evals.dataset import load_dataset
+from app.evals.detector import load_detector_cases, render_detector_markdown, run_detector
 from app.evals.report import EvalReport, render_markdown
 from app.evals.runner import EvalRunner
 from app.llm.factory import build_llm_provider
@@ -47,6 +48,7 @@ from app.services.rag_service import RagService
 
 RAIZ = Path(__file__).parent
 DATASET = RAIZ / "evals" / "evaluation_dataset.json"
+DETECTOR_DATASET = RAIZ / "evals" / "detector_cases.json"
 CORPUS = RAIZ / "evals" / "corpus"
 REPORTS = RAIZ / "evals" / "reports"
 
@@ -64,6 +66,12 @@ def parse_args() -> argparse.Namespace:
         default=[],
         metavar="ID",
         help="Roda apenas os casos indicados. Pode repetir.",
+    )
+    parser.add_argument(
+        "--detector",
+        action="store_true",
+        help="Roda o conjunto de respostas com defeito conhecido: mede o MOTOR DE "
+        "QUALIDADE, e nao o sistema. Nao consulta a base. Exige LLM.",
     )
     parser.add_argument(
         "--smoke",
@@ -91,10 +99,49 @@ async def ingest_corpus(service: DocumentService) -> int:
     return len(arquivos)
 
 
+async def run_detector_mode(settings: Settings, saida: Path) -> int:
+    """Mede a sensibilidade do motor de qualidade, sem tocar no sistema.
+
+    Nao ha ingestao, nao ha recuperacao, nao ha `RagService`: os subjects vem prontos do
+    JSON. E o unico modo que consegue responder "que nota uma resposta ruim tira?" -- e
+    sem essa resposta o limite de aprovacao e chute.
+    """
+    provider = build_llm_provider(settings)
+    try:
+        casos = load_detector_cases(DETECTOR_DATASET)
+        motor = build_quality_engine(provider, threshold=settings.quality_threshold)
+
+        print(f"Casos: {len(casos)} | LLM: {provider.name}/{provider.model}\n")
+        resultados = await run_detector(motor, casos)
+    finally:
+        await provider.aclose()
+
+    for item in resultados:
+        marca = "ok   " if item.detected else "FALHA"
+        dim = f"{item.dimension_score:.2f}" if item.dimension_score is not None else "  --"
+        print(f"  [{marca}] {dim}  {item.case_id:<34} ({item.label})")
+
+    # Em thread separada: escrever arquivo bloqueia o event loop, e a regra `ASYNC240`
+    # existe justamente para nao deixar isso passar por descuido. Aqui o custo seria
+    # invisivel -- a rodada ja terminou --, mas a excecao viraria habito.
+    destino = saida / "detector.md"
+    await asyncio.to_thread(saida.mkdir, parents=True, exist_ok=True)
+    await asyncio.to_thread(
+        destino.write_text, render_detector_markdown(resultados), encoding="utf-8"
+    )
+
+    acertos = sum(1 for item in resultados if item.detected)
+    print(f"\n{acertos}/{len(resultados)} corretos | relatorio: {destino}")
+    return 0 if acertos == len(resultados) else 1
+
+
 async def main() -> int:
     args = parse_args()
     settings: Settings = get_settings()
     configure_logging(settings.model_copy(update={"log_level": "WARNING"}))
+
+    if args.detector:
+        return await run_detector_mode(settings, args.out)
 
     casos = load_dataset(DATASET)
     if args.case:

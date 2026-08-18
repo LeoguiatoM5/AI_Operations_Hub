@@ -1,0 +1,124 @@
+[
+  {
+    "id": "controle-resposta-boa",
+    "defect": null,
+    "expect_below": null,
+    "note": "Controle. Sem ele nao ha como saber se o detector reprova tudo -- um juiz que so diz 'ruim' e tao inutil quanto um que so diz 'bom'.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "O prazo para solicitar reembolso e de 30 dias corridos contados da data da despesa.",
+    "claims": ["O prazo para solicitar reembolso e de 30 dias corridos contados da data da despesa."],
+    "sources": [
+      {
+        "filename": "politica-reembolso.md",
+        "excerpt": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa. Pedidos fora desse prazo sao recusados automaticamente pelo sistema."
+      }
+    ]
+  },
+  {
+    "id": "grounding-inventado",
+    "defect": "grounding",
+    "expect_below": 0.5,
+    "note": "Afirmacao inteiramente ausente do trecho. E o modo de falha mais caro de um RAG: soa fluente, parece plausivel e nao e verificavel.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "O prazo e de 30 dias, prorrogavel por mais 15 mediante aprovacao do gestor.",
+    "claims": ["O prazo pode ser prorrogado por mais 15 dias mediante aprovacao do gestor."],
+    "sources": [
+      {
+        "filename": "politica-reembolso.md",
+        "excerpt": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa. Pedidos fora desse prazo sao recusados automaticamente pelo sistema."
+      }
+    ]
+  },
+  {
+    "id": "grounding-numero-trocado",
+    "defect": "grounding",
+    "expect_below": 0.5,
+    "note": "Numero errado com o resto certo. Mais perigoso que a invencao completa: a frase inteira parece correta, e so o numero esta trocado.",
+    "task": "De quanto em quanto tempo a senha expira?",
+    "answer": "As senhas corporativas expiram a cada 30 dias.",
+    "claims": ["As senhas corporativas expiram a cada 30 dias."],
+    "sources": [
+      {
+        "filename": "seguranca-senhas.md",
+        "excerpt": "Senhas corporativas expiram a cada noventa dias e nao podem repetir as ultimas cinco utilizadas. O comprimento minimo e de doze caracteres."
+      }
+    ]
+  },
+  {
+    "id": "grounding-metade-sustentada",
+    "defect": "grounding",
+    "expect_below": 0.8,
+    "note": "Uma afirmacao sustentada e uma inventada. Verifica se a nota e proporcional, e nao binaria -- meio certo precisa valer meio.",
+    "task": "Como funcionam as ferias?",
+    "answer": "O periodo aquisitivo e de doze meses. As ferias podem ser vendidas integralmente.",
+    "claims": [
+      "O periodo aquisitivo corresponde a doze meses de trabalho.",
+      "As ferias podem ser vendidas integralmente."
+    ],
+    "sources": [
+      {
+        "filename": "politica-ferias.md",
+        "excerpt": "O periodo aquisitivo corresponde a doze meses de trabalho. A venda de ate um terco das ferias (abono pecuniario) deve ser solicitada ate quinze dias antes do fim do periodo aquisitivo."
+      }
+    ]
+  },
+  {
+    "id": "relevance-fora-do-assunto",
+    "defect": "relevance",
+    "expect_below": 0.5,
+    "note": "Responde outra pergunta. Fundamentado e coerente -- e inutil. Sem esta dimensao, uma resposta assim passaria no grounding.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "O periodo aquisitivo de ferias corresponde a doze meses de trabalho, e as ferias podem ser divididas em ate tres periodos.",
+    "claims": ["O periodo aquisitivo corresponde a doze meses de trabalho."],
+    "sources": [
+      {
+        "filename": "politica-ferias.md",
+        "excerpt": "O periodo aquisitivo corresponde a doze meses de trabalho. As ferias podem ser divididas em ate tres periodos."
+      }
+    ]
+  },
+  {
+    "id": "completeness-metade-do-pedido",
+    "defect": "completeness",
+    "expect_below": 0.8,
+    "note": "Pedido com dois itens, resposta com um. Cada afirmacao esta sustentada -- o grounding daria 1.00. So a completude pega.",
+    "task": "Qual o prazo do reembolso e quais documentos sao exigidos?",
+    "answer": "O prazo e de 30 dias corridos contados da data da despesa.",
+    "claims": ["O prazo e de 30 dias corridos contados da data da despesa."],
+    "expected_topics": ["prazo de 30 dias corridos", "nota fiscal e formulario de despesas"],
+    "sources": [
+      {
+        "filename": "politica-reembolso.md",
+        "excerpt": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos. Documentos exigidos: nota fiscal legivel em nome da empresa e o formulario de despesas preenchido."
+      }
+    ]
+  },
+  {
+    "id": "consistency-contradiz-a-si-mesma",
+    "defect": "consistency",
+    "expect_below": 0.8,
+    "note": "Dois numeros incompativeis no mesmo texto. E o defeito tipico de sistema multiagente: cada agente viu parte do material, e ninguem comparou as duas metades.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "O prazo para solicitar reembolso e de 30 dias corridos. Pedidos podem ser enviados em ate 60 dias da data da despesa.",
+    "claims": [
+      "O prazo para solicitar reembolso e de 30 dias corridos.",
+      "Pedidos podem ser enviados em ate 60 dias da data da despesa."
+    ],
+    "sources": [
+      {
+        "filename": "politica-reembolso.md",
+        "excerpt": "Solicitacoes de reembolso devem ser enviadas em ate 30 dias corridos contados da data da despesa."
+      }
+    ]
+  },
+  {
+    "id": "grounding-sem-fonte-alguma",
+    "defect": "grounding",
+    "expect_below": 0.5,
+    "note": "Afirma apoiado na base e nao cita nada. Decidido sem juiz, pelo atalho -- e a prova de que o atalho reprova quando deve.",
+    "task": "Qual o prazo para solicitar reembolso?",
+    "answer": "O prazo e de 45 dias uteis.",
+    "claims": ["O prazo e de 45 dias uteis."],
+    "sources": []
+  }
+]

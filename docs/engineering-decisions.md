@@ -1664,3 +1664,103 @@ interna do compose, onde nao ha disputa.
 
 **Licao geral.** Porta padrao publicada no host e conflito esperando acontecer em qualquer
 maquina de desenvolvimento -- e o modo de falha e silencioso.
+
+---
+
+## ED-094 — Conjunto que mede o DETECTOR, e nao o sistema
+
+**O buraco que o V5 deixou declarado.** Para calibrar um limite e preciso saber que nota
+uma resposta ruim tira. O conjunto principal roda o sistema, e ele acertou 15 de 16 casos
+com nota 1.00: **nao havia um unico exemplo entre 0.0 e 0.91**. Escolher um limite nesse
+vazio e chute com aparencia de medicao.
+
+**Nao adianta esperar o sistema errar.** As respostas ruins precisam ser escritas a mao,
+cada uma com um defeito conhecido, e o conjunto verifica se a dimensao certa reprova.
+`evals/detector_cases.json` nao passa pelo `RagService`: o `QualitySubject` vem do JSON.
+
+**O caso de controle importa tanto quanto os defeituosos.** Um juiz que reprova tudo e tao
+inutil quanto um que aprova tudo, e sem uma resposta boa no conjunto os dois pareceriam
+identicos. `load_detector_cases` recusa um conjunto sem controle.
+
+**Sensibilidade medida na primeira rodada:**
+
+| Defeito | Nota da dimensao |
+|---|---|
+| afirmacao inventada | 0.00 |
+| numero trocado | 0.00 |
+| metade sustentada | 0.50 (proporcional, e nao binaria) |
+| sem fonte alguma | 0.00 |
+| fora do assunto | 0.00 |
+| metade do pedido | 0.50 |
+| contradicao interna | **1.00 — nao detectou** |
+
+---
+
+## ED-095 — O conjunto do detector achou um ponto cego na primeira rodada
+
+**O que passou.** Um texto dizendo "o prazo e de 30 dias corridos" e "podem ser enviados
+em ate 60 dias" recebeu `consistency = 1.00`. Contradicao numerica direta, nota cheia.
+
+**Causa: o meu proprio prompt.** Ele dizia *"material coerente devolve `contradictions`
+vazio. Essa e a resposta esperada na maioria dos casos; nao force um achado"*. Eu me
+protegi tanto contra falso positivo que produzi um falso negativo no caso mais obvio
+possivel.
+
+**Correcao.** Mesma medicina que curou o grounding: exemplos concretos no prompt, regra
+explicita de que numeros que nao batem sao sempre contradicao, e a instrucao de nao deixar
+de registrar um achado real por receio de estar forcando.
+
+**Efeito:** 1.00 -> 0.66, e o conjunto foi a 8/8.
+
+**Licao.** Instrucao que calibra o modelo contra um erro o empurra para o erro oposto. O
+unico jeito de saber onde ele parou e ter casos dos dois lados -- e por isso o conjunto
+tem controle.
+
+---
+
+## ED-096 — A mesma correcao do ED-078 faltava no juiz de coerencia
+
+**Como apareceu.** Corrigido o falso negativo, o conjunto PRINCIPAL regrediu:
+`armadilha-inferencia`, um caso de recusa correta, caiu de 1.00 para 0.66. A evidencia
+entregou a causa:
+
+    statement_a: "Os trechos nao mencionam a possibilidade de pedir excecao..."   <- a resposta
+    statement_b: "Se eu perder o prazo de reembolso, posso pedir excecao?"        <- a PERGUNTA
+
+O juiz tratou a **pergunta do usuario como uma afirmacao** e acusou contradicao entre ela
+e a recusa.
+
+**E o mesmo defeito do ED-078**, que eu havia corrigido apenas no `grounding`: a pergunta
+chegava como mensagem do usuario e virava parte do material julgado. Coerencia e uma
+propriedade do material consigo mesmo -- uma pergunta nao afirma nada, e portanto nao pode
+contradizer coisa alguma.
+
+**Correcao.** `ConsistencyDimension` tambem deixou de receber a pergunta.
+
+**Licao sobre o processo, e nao sobre o codigo.** Ao corrigir um defeito, procure a mesma
+classe nos vizinhos. Eu tinha o diagnostico certo em maos e apliquei em um lugar so; o
+segundo caso so apareceu porque duas ferramentas diferentes -- o conjunto do detector e o
+conjunto principal -- olhavam o sistema de angulos diferentes.
+
+---
+
+## ED-097 — O limite de qualidade e 0.85, e o 0.7 anterior estava errado
+
+**Medido**, cruzando os dois conjuntos:
+
+| | faixa |
+|---|---|
+| respostas boas (16 reais + 1 controle) | 0.91 a 1.00 |
+| respostas ruins (7 defeitos escritos) | 0.39 a **0.76** |
+
+**O 0.7 arbitrado nao era so impreciso -- era errado.** Duas respostas comprovadamente
+ruins pontuaram 0.76, acima dele: teriam sido aprovadas pelo portao.
+
+**0.85 fica na lacuna**, com 0.09 de folga sobre a pior ruim e 0.06 sob a melhor boa. As
+folgas sao reais, e nao orcamento de ruido: a variacao do juiz entre rodadas repetidas foi
+medida em 0.000 (ED-077).
+
+**Continua sendo uma PRIMEIRA calibracao**, e isso esta escrito no proprio codigo. Os
+defeitos do conjunto sao deliberadamente grosseiros; uma resposta ruim mais sutil pode
+pontuar acima de 0.76 e passar. O caminho para melhorar e mais casos -- e nao outro numero
+escolhido no olho.

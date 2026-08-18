@@ -1,6 +1,6 @@
 # Relatorio de avaliacao
 
-**Gerado em:** 2026-08-17 20:45:43 UTC
+**Gerado em:** 2026-08-18 00:56:08 UTC
 
 | Configuracao | Valor |
 |---|---|
@@ -13,7 +13,7 @@
 
 - **Casos:** 16
 - **Assercoes aprovadas:** 16/16 (100%)
-- **Custo da rodada:** US$ 0.008216
+- **Custo da rodada:** US$ 0.008725
 
 ### Media por dimensao
 

@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-08-17T20:45:43.438060Z",
+  "generated_at": "2026-08-18T00:56:08.212618Z",
   "llm_provider": "openai",
   "llm_model": "gpt-4o-mini",
   "embedding_provider": "openai",
   "embedding_model": "text-embedding-3-small",
   "min_relevant_score": 0.35,
-  "quality_threshold": 0.7,
+  "quality_threshold": 0.85,
   "judged": true,
   "cases": [
     {
@@ -37,7 +37,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -89,8 +89,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.075e-05,
-            "tokens": 578
+            "cost_usd": 0.00012345,
+            "tokens": 796
           },
           {
             "dimension": "api_reliability",
@@ -102,10 +102,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00053925
+        "cost_usd": 0.00057195
       },
       "best_score": 0.7453,
-      "cost_usd": 0.00074057,
+      "cost_usd": 0.00077327,
       "error": null
     },
     {
@@ -137,7 +137,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -151,20 +151,20 @@
               "sources_available": 1,
               "verdicts_discarded": 0
             },
-            "cost_usd": 0.00022815,
-            "tokens": 1251
+            "cost_usd": 0.00023115,
+            "tokens": 1256
           },
           {
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta fornece os documentos exigidos para solicitar reembolso, que é a informação solicitada.",
+            "reason": "A resposta fornece os documentos necessários para solicitar reembolso, que é a informação pedida.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 9.975e-05,
-            "tokens": 548
+            "cost_usd": 9.915e-05,
+            "tokens": 547
           },
           {
             "dimension": "completeness",
@@ -189,8 +189,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.45e-05,
-            "tokens": 603
+            "cost_usd": 0.00012735,
+            "tokens": 822
           },
           {
             "dimension": "api_reliability",
@@ -202,10 +202,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00056175
+        "cost_usd": 0.000597
       },
       "best_score": 0.6179,
-      "cost_usd": 0.00073091,
+      "cost_usd": 0.00076616,
       "error": null
     },
     {
@@ -237,7 +237,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -258,13 +258,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta fornece informações sobre o prazo para solicitação de reembolso e os documentos exigidos, abordando diretamente a pergunta feita.",
+            "reason": "A resposta fornece informações sobre o prazo para solicitação de reembolso e os documentos exigidos, que são exatamente as informações solicitadas na pergunta.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.0001059,
-            "tokens": 568
+            "cost_usd": 0.0001077,
+            "tokens": 571
           },
           {
             "dimension": "completeness",
@@ -289,8 +289,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.78e-05,
-            "tokens": 625
+            "cost_usd": 0.00013005,
+            "tokens": 840
           },
           {
             "dimension": "api_reliability",
@@ -302,10 +302,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005991
+        "cost_usd": 0.00063315
       },
       "best_score": 0.6612,
-      "cost_usd": 0.00083931,
+      "cost_usd": 0.00087336,
       "error": null
     },
     {
@@ -337,7 +337,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -389,8 +389,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.33e-05,
-            "tokens": 595
+            "cost_usd": 0.00012585,
+            "tokens": 812
           },
           {
             "dimension": "api_reliability",
@@ -402,10 +402,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00053715
+        "cost_usd": 0.0005697
       },
       "best_score": 0.7673,
-      "cost_usd": 0.00072204,
+      "cost_usd": 0.00075459,
       "error": null
     },
     {
@@ -437,7 +437,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -458,13 +458,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta informa que as férias podem ser divididas em até três períodos, abordando diretamente a pergunta sobre a divisão das férias.",
+            "reason": "A resposta aborda diretamente a pergunta sobre a divisão das férias em períodos.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 0.00010425,
-            "tokens": 557
+            "cost_usd": 9.705e-05,
+            "tokens": 545
           },
           {
             "dimension": "completeness",
@@ -489,8 +489,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.465e-05,
-            "tokens": 604
+            "cost_usd": 0.00012705,
+            "tokens": 820
           },
           {
             "dimension": "api_reliability",
@@ -502,10 +502,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005775
+        "cost_usd": 0.0006027
       },
       "best_score": 0.6577,
-      "cost_usd": 0.00076498,
+      "cost_usd": 0.00079018,
       "error": null
     },
     {
@@ -537,7 +537,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -589,8 +589,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.775e-05,
-            "tokens": 558
+            "cost_usd": 0.00012015,
+            "tokens": 774
           },
           {
             "dimension": "api_reliability",
@@ -602,10 +602,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005202
+        "cost_usd": 0.0005526
       },
       "best_score": 0.6644,
-      "cost_usd": 0.00071679,
+      "cost_usd": 0.00074919,
       "error": null
     },
     {
@@ -637,7 +637,7 @@
       "quality": {
         "score": 0.9091,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -691,8 +691,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.82e-05,
-            "tokens": 561
+            "cost_usd": 0.00012075,
+            "tokens": 778
           },
           {
             "dimension": "api_reliability",
@@ -704,10 +704,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005445
+        "cost_usd": 0.00057705
       },
       "best_score": 0.5747,
-      "cost_usd": 0.00067871,
+      "cost_usd": 0.00071126,
       "error": null
     },
     {
@@ -739,7 +739,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -791,8 +791,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.895e-05,
-            "tokens": 566
+            "cost_usd": 0.00012135,
+            "tokens": 782
           },
           {
             "dimension": "api_reliability",
@@ -804,10 +804,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005205
+        "cost_usd": 0.0005529
       },
       "best_score": 0.4767,
-      "cost_usd": 0.00065218,
+      "cost_usd": 0.00068458,
       "error": null
     },
     {
@@ -837,7 +837,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -875,8 +875,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.015e-05,
-            "tokens": 574
+            "cost_usd": 0.0001227,
+            "tokens": 791
           },
           {
             "dimension": "api_reliability",
@@ -888,10 +888,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 9.015e-05
+        "cost_usd": 0.0001227
       },
-      "best_score": 0.5522,
-      "cost_usd": 0.00024146,
+      "best_score": 0.5524,
+      "cost_usd": 0.00027401,
       "error": null
     },
     {
@@ -923,7 +923,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -944,13 +944,13 @@
             "dimension": "relevance",
             "score": 1.0,
             "applicable": true,
-            "reason": "A resposta informa que o modelo vigente é híbrido, com um mínimo de dois dias presenciais por semana.",
+            "reason": "A resposta informa que o modelo vigente é híbrido e menciona a quantidade mínima de dias presenciais por semana.",
             "evidence": {
               "addresses_request": true,
               "off_topic": []
             },
-            "cost_usd": 9.99e-05,
-            "tokens": 540
+            "cost_usd": 0.0001005,
+            "tokens": 541
           },
           {
             "dimension": "completeness",
@@ -975,8 +975,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.105e-05,
-            "tokens": 580
+            "cost_usd": 0.00012375,
+            "tokens": 798
           },
           {
             "dimension": "api_reliability",
@@ -988,10 +988,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.00052425
+        "cost_usd": 0.00055755
       },
       "best_score": 0.5128,
-      "cost_usd": 0.00072774,
+      "cost_usd": 0.00076104,
       "error": null
     },
     {
@@ -1023,7 +1023,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1063,8 +1063,8 @@
               "missing": [],
               "expectations_declared": true
             },
-            "cost_usd": 0.00016035,
-            "tokens": 748
+            "cost_usd": 0.00015135,
+            "tokens": 733
           },
           {
             "dimension": "consistency",
@@ -1075,8 +1075,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.33e-05,
-            "tokens": 595
+            "cost_usd": 0.00012645,
+            "tokens": 816
           },
           {
             "dimension": "api_reliability",
@@ -1088,10 +1088,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 0.0005697
+        "cost_usd": 0.00059385
       },
       "best_score": 0.5749,
-      "cost_usd": 0.00073156,
+      "cost_usd": 0.00075571,
       "error": null
     },
     {
@@ -1121,7 +1121,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1159,8 +1159,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.445e-05,
-            "tokens": 536
+            "cost_usd": 0.00011685,
+            "tokens": 752
           },
           {
             "dimension": "api_reliability",
@@ -1172,10 +1172,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 8.445e-05
+        "cost_usd": 0.00011685
       },
       "best_score": 0.0,
-      "cost_usd": 8.471e-05,
+      "cost_usd": 0.00011711,
       "error": null
     },
     {
@@ -1205,7 +1205,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1243,8 +1243,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.43e-05,
-            "tokens": 535
+            "cost_usd": 0.00011685,
+            "tokens": 752
           },
           {
             "dimension": "api_reliability",
@@ -1256,10 +1256,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 8.43e-05
+        "cost_usd": 0.00011685
       },
       "best_score": 0.0,
-      "cost_usd": 8.458e-05,
+      "cost_usd": 0.00011713,
       "error": null
     },
     {
@@ -1289,7 +1289,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1327,8 +1327,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.46e-05,
-            "tokens": 537
+            "cost_usd": 0.00011685,
+            "tokens": 752
           },
           {
             "dimension": "api_reliability",
@@ -1340,10 +1340,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 8.46e-05
+        "cost_usd": 0.00011685
       },
       "best_score": 0.0,
-      "cost_usd": 8.494e-05,
+      "cost_usd": 0.00011719,
       "error": null
     },
     {
@@ -1373,7 +1373,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1411,8 +1411,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 8.37e-05,
-            "tokens": 531
+            "cost_usd": 0.00011685,
+            "tokens": 752
           },
           {
             "dimension": "api_reliability",
@@ -1424,10 +1424,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 8.37e-05
+        "cost_usd": 0.00011685
       },
       "best_score": 0.0,
-      "cost_usd": 8.386e-05,
+      "cost_usd": 0.00011701,
       "error": null
     },
     {
@@ -1457,7 +1457,7 @@
       "quality": {
         "score": 1.0,
         "passed": true,
-        "threshold": 0.7,
+        "threshold": 0.85,
         "dimensions": [
           {
             "dimension": "grounding",
@@ -1495,8 +1495,8 @@
               "contradictions": [],
               "discarded": 0
             },
-            "cost_usd": 9.855e-05,
-            "tokens": 630
+            "cost_usd": 0.0001302,
+            "tokens": 841
           },
           {
             "dimension": "api_reliability",
@@ -1508,10 +1508,10 @@
             "tokens": 0
           }
         ],
-        "cost_usd": 9.855e-05
+        "cost_usd": 0.0001302
       },
       "best_score": 0.5256,
-      "cost_usd": 0.00033164,
+      "cost_usd": 0.00036329,
       "error": null
     }
   ],
@@ -1519,7 +1519,7 @@
     "total": 16,
     "passed": 16,
     "pass_rate": 1.0,
-    "cost_usd": 0.008216,
+    "cost_usd": 0.008725,
     "dimension_averages": {
       "completeness": 0.95,
       "consistency": 1.0,

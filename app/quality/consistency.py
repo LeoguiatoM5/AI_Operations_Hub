@@ -59,7 +59,18 @@ class ConsistencyDimension(JudgedDimension):
             )
 
         veredito, response = await self._judge(
-            "consistency", ConsistencyVerdict, task=subject.task, material=material
+            "consistency",
+            ConsistencyVerdict,
+            # A pergunta do usuario NAO e enviada -- mesma correcao do ED-078, que eu
+            # havia aplicado so no grounding. Recebendo-a, o juiz a tratou como uma
+            # AFIRMACAO e acusou contradicao entre a pergunta e a resposta: uma recusa
+            # correta ("os trechos nao mencionam essa possibilidade") virou "contradiz" a
+            # pergunta "posso pedir excecao?".
+            #
+            # Coerencia e uma propriedade do material consigo mesmo. Uma pergunta nao
+            # afirma nada, e portanto nao pode contradizer coisa alguma.
+            task="Procure contradicoes dentro do material abaixo.",
+            material=material,
         )
 
         # Um achado sem as duas partes citadas e impressao, nao contradicao: descartado

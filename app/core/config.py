@@ -126,7 +126,22 @@ class Settings(BaseSettings):
     #: Para observar sem reprovar, ligue com `QUALITY_THRESHOLD=0.0`: tudo passa, as notas
     #: sao gravadas, e da para acumular medicao antes de ligar o portao de verdade.
     quality_enabled: bool = False
-    quality_threshold: float = Field(default=0.7, ge=0.0, le=1.0)
+    #: **0.85, medido** -- o valor anterior (0.7) era arbitrado, e a medicao mostrou que
+    #: ele estava ERRADO: duas respostas comprovadamente ruins pontuaram 0.76, acima dele.
+    #:
+    #: Faixas observadas (`evals/reports/`):
+    #:
+    #: - respostas boas .. 0.91 a 1.00  (16 casos reais + 1 controle)
+    #: - respostas ruins .. 0.39 a 0.76  (7 defeitos escritos a mao)
+    #:
+    #: 0.85 fica na lacuna, com 0.09 de folga sobre a pior ruim e 0.06 sob a melhor boa.
+    #: As folgas sao reais e nao orcamento de ruido: a variacao do juiz entre rodadas
+    #: repetidas foi medida em 0.000 (ED-077).
+    #:
+    #: Continua sendo uma PRIMEIRA calibracao. Os defeitos do conjunto sao deliberadamente
+    #: grosseiros; uma resposta ruim mais sutil pode pontuar acima de 0.76 e passar. O
+    #: caminho para melhorar e mais casos, e nao outro numero.
+    quality_threshold: float = Field(default=0.85, ge=0.0, le=1.0)
 
     # callback de resultado
     #: Para onde enviar o resultado de uma execucao que foi retomada apos aprovacao
