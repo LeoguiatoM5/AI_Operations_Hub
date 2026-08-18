@@ -4,7 +4,17 @@ Plataforma de automacao empresarial que recebe uma solicitacao em linguagem natu
 interpreta a intencao, consulta a base de conhecimento corporativa, decide quais acoes
 executar e dispara automacoes -- registrando cada decisao tomada no caminho.
 
-> **Status:** em construcao. Versao atual: `V3 - Workflow multiagente com LangGraph`.
+> **Status:** V1 a V7 concluidas. 571 testes, 97% de cobertura, 100 decisoes de engenharia
+> documentadas com o contexto que as motivou -- inclusive as que se provaram erradas e
+> foram reescritas.
+
+**Tres garantias, cada uma com um mecanismo proprio:**
+
+| Garantia | Como |
+|---|---|
+| Nao inventa | Sem contexto relevante, a chamada de LLM **nem acontece** -- a resposta e "a base nao cobre isto" |
+| Nao age sozinho | Acao de escrita para em `waiting_approval` e **sobrevive a um restart** ate uma pessoa decidir |
+| Nao entrega sem medir | Cinco dimensoes avaliam a resposta; reprovada, ela e reescrita com o motivo da reprovacao |
 
 ---
 
@@ -31,9 +41,9 @@ qualquer acao de escrita em sistemas externos.
 | **V2** | RAG com ChromaDB, ingestao de documentos, respostas com fontes citadas | concluido |
 | **V3** | LangGraph: quatro agentes, roteamento por plano, checkpointer persistente | concluido |
 | **V4** | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
-| V5 | AI Quality Gateway e AI Evals | planejado |
-| V6 | Servidor MCP | planejado |
-| V7 | Docker, CI/CD e observabilidade completa | planejado |
+| **V5** | Portao de qualidade em cinco dimensoes + conjuntos de avaliacao | concluido |
+| **V6** | Servidor MCP sobre a mesma camada de servico | concluido |
+| **V7** | Docker, CI sem segredos, PostgreSQL com Alembic, material de portfolio | concluido |
 
 Detalhamento de cada versao, invariantes do projeto e pendencias conhecidas em
 [`docs/roadmap.md`](docs/roadmap.md). As decisoes arquiteturais, com o contexto que as
@@ -357,8 +367,18 @@ pausa e a aprovacao para provar que a retomada nao depende do processo original.
 
 ### Custo de uma execucao completa
 
-Quatro agentes, cinco chamados analisados, base de conhecimento consultada:
-**4.413 tokens, US$ 0,000908, 8,6 segundos.**
+| Operacao | Custo medido |
+|---|---|
+| Consulta a base que **responde** | US$ 0,0002 |
+| Consulta a base que **recusa** | US$ 0,0000003 -- o LLM nem e chamado |
+| Workflow completo (4 agentes, com RAG) | US$ 0,0009 |
+| Portao de qualidade ligado | ~2x o custo da execucao |
+| Conjunto de avaliacao (16 casos, com juizes) | US$ 0,009 |
+| Conjunto do detector (13 casos) | US$ 0,007 |
+
+A segunda linha e a mais interessante: uma pergunta que a base nao cobre custa **tres
+decimos de milionesimo de dolar**, porque so o embedding da pergunta e pago. Recusar sai
+seiscentas vezes mais barato que responder.
 
 ---
 
@@ -409,7 +429,8 @@ demonstravel, em vez de afirmada.
 
 ### Teste de contrato
 
-A mesma bateria de 13 testes roda contra `InMemoryVectorStore` e `ChromaVectorStore`.
+A mesma bateria roda contra `InMemoryVectorStore` e `ChromaVectorStore` -- 13 casos, 26
+execucoes.
 E o que sustenta a afirmacao de que trocar de banco vetorial e mudar uma variavel: se o
 Chroma divergir do comportamento de referencia, a suite quebra.
 
@@ -566,6 +587,128 @@ continuam entre 0 e 1 e resultados continuam aparecendo. Eles e que seriam aleat
 
 ---
 
+## Aprovacao humana
+
+Nenhuma acao que escreve em sistema externo acontece sem uma pessoa autorizar. O que torna
+isso real, e nao um campo no banco, e o checkpointer: a execucao **pausa**, o estado vai
+para o disco, e a decisao pode chegar horas depois -- de outro processo.
+
+```
+POST /agents/run  "avise o time sobre os chamados criticos"
+  -> status: waiting_approval    nada foi executado
+  -> pending_approval: { tool, arguments, reason }
+
+   ... a aplicacao pode cair, subir de novo, fazer deploy ...
+
+POST /approvals/{id}/approve  { "decided_by": "leonardo" }
+  -> executa EXATAMENTE o que foi mostrado  -> completed
+```
+
+**A automacao ocupa dois nos do grafo, e a razao e sutil.** A retomada de um `interrupt()`
+reexecuta o no **inteiro**, e nao a linha seguinte. Se decidir a acao e executa-la
+vivessem juntos, cada aprovacao pagaria de novo a chamada de LLM -- e o modelo poderia
+escolher **outra coisa**, executando algo diferente do que a pessoa aprovou. O checkpoint
+entre os dois congela a acao antes de qualquer humano ver a tela.
+
+`tests/integration/test_approval_across_restart.py` derruba aplicacao, engine, checkpointer
+e notificador entre a pausa e a decisao. A mensagem sai por um processo que nunca viu a
+solicitacao original.
+
+**Quem decide nao pode ser a IA.** O escopo (`read`/`write`) e declarado pela propria
+ferramenta, e `GET /tools` publica isso. Nao existe rota para executar ferramenta direto,
+e o servidor MCP nao tem ferramenta de aprovar -- ha testes afirmando as duas ausencias.
+
+---
+
+## Portao de qualidade
+
+Cinco dimensoes avaliam a resposta antes de ela ser entregue. Desligado por padrao: custa
+tres a quatro chamadas de LLM por execucao.
+
+| Dimensao | Pergunta | Custo |
+|---|---|---|
+| `grounding` | Toda afirmacao tem fonte entre os trechos citados? | LLM |
+| `relevance` | A resposta trata do que foi pedido? | LLM |
+| `completeness` | Cobriu todos os itens do pedido? | LLM |
+| `consistency` | Ha contradicao interna? | LLM |
+| `api_reliability` | Houve erro, timeout ou repeticao no caminho? | **gratis** |
+
+**Nao se pergunta uma nota ao modelo.** O juiz **classifica** -- cada afirmacao como
+sustentada ou nao, cada item do pedido como coberto ou nao -- e a aritmetica e nossa. A
+nota fica auditavel (vem com a lista), reproduzivel (mesma classificacao, mesma nota) e
+**testavel sem rede**.
+
+Reprovada, a resposta volta para uma reescrita que recebe o **motivo exato** da reprovacao.
+Reprovando de novo, a execucao termina em `needs_human_review` -- com a resposta entregue
+assim mesmo, marcada. Reter o resultado perderia o material que custou tokens.
+
+```powershell
+# no .env: QUALITY_ENABLED=true
+# QUALITY_THRESHOLD=0.0 mede tudo sem reprovar nada (modo sombra)
+```
+
+---
+
+## Avaliacao: dois conjuntos, duas perguntas
+
+```powershell
+python run_evals.py            # so assercoes deterministicas: gratis
+python run_evals.py --judge    # + as dimensoes por LLM: ~US$ 0,009
+python run_evals.py --detector # mede o MEDIDOR: ~US$ 0,007
+```
+
+**`evaluation_dataset.json` pergunta "a resposta esta boa?"** -- 16 casos que rodam o
+sistema de verdade sobre um corpus de politicas. Tres assercoes **sem LLM** sustentam o
+veredito: respondeu quando devia, citou as fontes esperadas, nao disse o proibido. Sem
+vies, sem custo, sem variacao entre execucoes.
+
+**`detector_cases.json` pergunta "o medidor percebe quando ela esta ruim?"** -- 13
+respostas com defeito **conhecido**, escritas a mao, que nao passam pelo sistema. Existe
+porque nao da para calibrar um limite sem saber que nota uma resposta ruim tira, e o
+sistema acertava 15 de 16 casos com nota 1.00.
+
+Foi assim que `QUALITY_THRESHOLD` deixou de ser chute:
+
+```
+respostas BOAS  ...  0.91 ─────────── 1.00
+respostas RUINS ...  0.39 ──── 0.76
+                                   ↑
+                    limite: 0.85 na lacuna
+```
+
+O valor anterior, 0.7, **nao era so impreciso -- era errado**: duas respostas
+comprovadamente ruins pontuavam 0.76 e teriam passado pelo portao.
+
+O conjunto do detector se pagou na estreia, achando dois pontos cegos no proprio motor.
+Relatorios versionados em [`evals/reports/`](evals/reports/).
+
+---
+
+## Servidor MCP
+
+O mesmo sistema por outro transporte. `python -m mcp_server` publica cinco ferramentas
+para um cliente de LLM (Claude Desktop, um IDE, outro agente) descobrir e chamar.
+
+| Ferramenta | Servico que ela adapta |
+|---|---|
+| `search_knowledge_base` | `RagService.query` |
+| `list_documents` | `DocumentRepository` |
+| `get_execution` | `ExecutionRepository` |
+| `list_pending_approvals` | `ApprovalRepository` |
+| `run_workflow` | `WorkflowService.run` |
+
+**O servidor inteiro tem menos de 250 linhas e nenhuma regra de negocio** -- ele chama
+exatamente o que `app/api/routes/` chama. REST e MCP sao adaptadores sobre uma camada de
+servico que nunca soube que HTTP existia, e o V6 foi a cobranca dessa promessa, feita no
+V1 e barata de afirmar ate aparecer o segundo transporte.
+
+**A ferramenta que ele NAO tem e a decisao mais importante daqui.** Nao existe
+`approve_action`: um cliente MCP e um modelo de linguagem, e dar a ele o poder de aprovar
+seria a IA autorizando a propria acao. O servidor **mostra** a pendencia para o modelo
+relatar a quem decide. Detalhes em [`docs/mcp.md`](docs/mcp.md).
+
+---
+
 ## Persistencia e rastreabilidade
 
 Cada pedido produz uma linha em `executions` e uma linha em `agent_executions` **por
@@ -598,7 +741,7 @@ tentativas esta somado.
 | Duas tabelas, nao uma | Achatar tudo em uma linha destruiria a cadeia de decisoes |
 | `UtcDateTime` proprio | SQLite nao guarda fuso; sem isso, duracoes calculadas depois mentem |
 | Agregados na escrita | Listar cem execucoes nao deve varrer todos os passos de cada uma |
-| `create_all` agora, Alembic no V7 | Migracao versionada so importa quando ha dados que nao podem ser perdidos |
+| `create_all` e Alembic convivem | O primeiro cria banco descartavel; o segundo altera banco com dados de alguem. Um teste roda `alembic check` e falha se um modelo mudar sem a migracao |
 
 Trocar para PostgreSQL e mudar uma variavel:
 
@@ -751,7 +894,7 @@ Leitura repete de graca. Escrita ja aprovada por uma pessoa, nao.
 | Documento | O que traz |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Seis diagramas: a forma do sistema, o grafo de agentes, a aprovacao atravessando um restart, o motor de qualidade |
-| [`docs/engineering-decisions.md`](docs/engineering-decisions.md) | 88 decisoes com o contexto que as motivou e as alternativas descartadas |
+| [`docs/engineering-decisions.md`](docs/engineering-decisions.md) | 100 decisoes com o contexto que as motivou e as alternativas descartadas |
 | [`docs/roadmap.md`](docs/roadmap.md) | Estado, invariantes do projeto e pendencias conhecidas |
 | [`docs/mcp.md`](docs/mcp.md) | O que e MCP, comparacao com REST, e a ferramenta que o servidor deliberadamente nao tem |
 | [`docs/security.md`](docs/security.md) | Endurecimento da imagem e as CVEs conhecidas sem correcao |
