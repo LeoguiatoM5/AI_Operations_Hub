@@ -37,3 +37,6 @@ tests/
 !README.md
 Dockerfile
 docker-compose*.yml
+
+# `migrations/` e `alembic.ini` NAO entram aqui: eles precisam viajar na imagem para que
+# `alembic upgrade head` rode no deploy.

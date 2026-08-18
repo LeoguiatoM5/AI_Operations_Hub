@@ -3,7 +3,7 @@
 Documento de continuidade: o que ja existe, quais invariantes o codigo respeita, e o que
 falta construir. Serve para retomar o trabalho sem reconstruir contexto.
 
-Atualizado durante o **V7** (Docker e CI concluidos).
+Atualizado ao final do **V7**.
 
 ---
 
@@ -17,9 +17,9 @@ Atualizado durante o **V7** (Docker e CI concluidos).
 | V4 | Ferramentas com escopo, human-in-the-loop, Slack e n8n | concluido |
 | V5 | AI Quality Gateway e AI Evals | concluido |
 | V6 | Servidor MCP | concluido |
-| V7 | Docker, CI/CD e material de portfolio | **em curso** (falta PostgreSQL + Alembic) |
+| V7 | Docker, CI/CD, PostgreSQL e material de portfolio | concluido |
 
-**Numeros:** 555 testes, 97% de cobertura, `ruff` e `mypy` limpos, 87 decisoes
+**Numeros:** 559 testes, 97% de cobertura, `ruff` e `mypy` limpos, 93 decisoes
 registradas em `engineering-decisions.md`.
 
 **Custo medido:** execucao completa do workflow (4 agentes, com RAG) custa cerca de
@@ -338,8 +338,7 @@ pela rede interna e persiste em volume.
   exigiria implementar o modo HTTP e acrescentaria uma porta de rede a uma dependencia com
   CVE critica sem correcao (`docs/security.md`). O Protocol `VectorStore` mantem a porta
   aberta para quando houver mais de uma instancia.
-- **`postgres`** -- exige Alembic (ED-020), que e trabalho proprio. **Pendencia declarada**,
-  em vez de entrega pela metade.
+- **`postgres`** -- entrou no perfil `postgres`, junto com o Alembic. Ver 7.4.
 
 ### 7.2 CI — **concluida**
 
@@ -421,3 +420,26 @@ fazem `/rag/query` devolver `409 embedding_model_mismatch`. Para migrar, apague
 
 
 
+
+
+### 7.4 PostgreSQL e migracoes — **concluido**
+
+O ED-020 dizia "`create_all` agora, Alembic junto com o PostgreSQL". Chegou a hora.
+
+- `migrations/` com a migracao inicial, gerada contra banco **vazio** (ED-091) e aplicada
+  com sucesso em SQLite e em PostgreSQL 17 -- o mesmo arquivo, os dois dialetos.
+- `render_item` desembrulha os `TypeDecorator` do projeto: a migracao descreve o banco e
+  **nao depende do codigo da aplicacao** (ED-089).
+- `create_all` sobrevive para banco descartavel; em PostgreSQL nao faz nada (ED-090).
+- `ruff` roda como post-write hook: a migracao nasce no padrao do projeto (ED-092).
+- Servico `postgres` no perfil `postgres`, publicado na **5433** por causa de um conflito
+  de porta que falha em silencio (ED-093).
+
+**Verificado de ponta a ponta:** a aplicacao em container, contra PostgreSQL, executou um
+workflow real e gravou a cadeia de agentes -- consultada depois por `psql`.
+
+**Quatro testes** cobrem o que costuma apodrecer: os modelos batem com as migracoes
+(`alembic check`), a migracao sabe voltar, nenhuma migracao referencia `app.`, e ha uma
+unica cabeca.
+
+---

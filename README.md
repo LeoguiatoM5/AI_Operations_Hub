@@ -157,6 +157,31 @@ A imagem roda como usuario sem privilegio, e o codigo dentro dela pertence ao ro
 aplicacao le o que executa e nao consegue reescrever. Detalhes, e as CVEs conhecidas sem
 correcao, em [`docs/security.md`](docs/security.md).
 
+### PostgreSQL e migracoes
+
+O padrao e SQLite -- um clone recem-baixado deve subir sem esperar banco inicializar. Para
+exercitar o caminho que a producao usaria:
+
+```powershell
+docker compose --profile postgres up -d --wait
+alembic -x url=postgresql+asyncpg://aiops:aiops@localhost:5433/aiops upgrade head
+$env:DATABASE_URL="postgresql+asyncpg://aiops:aiops@postgres:5432/aiops"
+docker compose --profile postgres up -d --wait api
+```
+
+O mesmo arquivo de migracao produz o esquema em SQLite e em PostgreSQL -- e e assim que a
+afirmacao "trocar de banco e trocar a URL" deixa de ser folclore de README e vira coisa
+verificada.
+
+**Por que a 5433 e nao a 5432.** Um PostgreSQL instalado na maquina disputa a porta padrao
+com o container, e o Windows deixa os dois abrirem sem erro: a conexao cai no servico local
+e falha com uma mensagem que nao acusa a causa (ED-093).
+
+**`create_all` e migracao convivem.** O primeiro cria tabelas em banco descartavel (a
+suite, um clone novo); o segundo altera banco que guarda dados de alguem. Em PostgreSQL o
+`create_all` nao faz nada, de proposito. Um teste roda `alembic check` e falha se um modelo
+mudar sem a migracao correspondente -- e o que impede os dois caminhos de divergirem.
+
 ### Automacao com n8n
 
 `workflows_n8n/aprovacao-de-acao.json` tem **dois triggers**, e a razao e o coracao do V4:

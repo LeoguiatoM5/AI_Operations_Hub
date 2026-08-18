@@ -1561,3 +1561,106 @@ passam. O healthcheck ja existia; faltava usar o que ele oferece.
 **Licao.** Definir healthcheck e metade do trabalho. Ele nao serve so ao orquestrador
 decidir reiniciar um container: serve a quem executa o comando saber quando pode confiar
 no resultado -- e essa metade se perde em silencio se ninguem passar `--wait`.
+
+---
+
+## ED-089 — Migracao descreve o banco, nao o sistema de tipos do Python
+
+**Como apareceu.** A primeira migracao gerada trazia
+`sa.Column('status', app.db.types.StrEnumType(length=16))` -- e o arquivo nao importava
+`app`. Rodaria com `NameError`.
+
+**A correcao obvia estaria errada.** Adicionar o import resolveria hoje e criaria um
+problema pior: a migracao passaria a **depender do codigo da aplicacao**. Uma migracao de
+dois anos atras precisa continuar rodando quando aquela classe tiver mudado de nome ou
+deixado de existir.
+
+**Decisao.** `render_item` em `migrations/env.py` desembrulha todo `TypeDecorator` para o
+tipo do banco: `StrEnumType` vira `sa.String(16)`, `UtcDateTime` vira `sa.DateTime()`.
+
+O banco nao sabe o que e um `StrEnum` -- essas classes sao conveniencia do lado Python
+(ED-058). A migracao descreve colunas, e coluna e `VARCHAR(16)`.
+
+**Ha teste afirmando isso** (`test_migrations_do_not_depend_on_application_code`): nenhum
+arquivo em `migrations/versions/` pode conter `app.`.
+
+---
+
+## ED-090 — `create_all` e migracao convivem, com fronteira explicita
+
+**Decisao.** `create_schema` cria tabelas apenas em SQLite. Em PostgreSQL ele **nao faz
+nada** e diz por que no log.
+
+**A fronteira.** `create_all` serve a banco descartavel -- o SQLite em memoria da suite, o
+indice temporario do `run_evals.py`, um clone que sobe em cinco segundos. Migracao serve a
+banco que guarda dados de alguem: ela sabe ALTERAR uma tabela sem perder o conteudo, que e
+exatamente o que `create_all` nao faz. Ele cria o que falta e ignora o que mudou.
+
+**Por que nao usar migracao em tudo.** A suite roda 559 testes, cada um com banco proprio.
+Aplicar migracoes a cada teste trocaria segundos por minutos sem cobrir nada que
+`create_all` nao cubra -- o esquema resultante e o mesmo, e ha teste provando.
+
+**O risco de dois caminhos e divergirem**, e ele e real: alguem acrescenta uma coluna no
+modelo, os testes passam porque `create_all` a cria, e a migracao nunca e escrita. O
+desvio so aparece no deploy.
+
+`tests/integration/test_migrations.py` roda `alembic check` e falha se um modelo mudou sem
+a migracao correspondente. E o que torna a convivencia honesta.
+
+---
+
+## ED-091 — `--autogenerate` compara com o banco atual, e nao com o vazio
+
+**Como apareceu.** A primeira migracao saiu **vazia**, sem nenhum `create_table`.
+
+**Causa.** O `data/app.db` de desenvolvimento ja tinha todas as tabelas, criadas por
+`create_all`. O Alembic comparou o modelo com aquele banco, achou tudo igual, e gerou uma
+migracao correta -- para aquele estado.
+
+**O sintoma e traicoeiro.** Nao ha erro. O arquivo e gerado, commitado, e so falha no
+primeiro banco vazio de verdade: producao.
+
+**Como fazer certo.** Gerar sempre contra um banco descartavel e vazio:
+
+    alembic -x url=sqlite+aiosqlite:///./tmp.db revision --autogenerate -m "..."
+
+**Licao.** `--autogenerate` nao le o historico de migracoes: ele compara **modelo contra
+banco conectado**. Quem esquece isso commita uma migracao que descreve a diferenca errada.
+
+---
+
+## ED-092 — Ruff roda como post-write hook do Alembic
+
+**Contexto.** O codigo gerado pelo Alembic nao segue o estilo do projeto: linhas longas,
+`Union[...]` em vez de `X | Y`, imports fora de ordem. Foram 14 erros de lint na primeira
+migracao.
+
+**Alternativa descartada.** Excluir `migrations/` do `ruff`. Seria desligar a verificacao
+de um diretorio cujo codigo roda contra o banco de **producao** -- exatamente onde ela
+importa mais.
+
+**Decisao.** `post_write_hooks` no `alembic.ini` roda `ruff check --fix` e `ruff format`
+logo apos gerar o arquivo. A migracao nasce no padrao, e ninguem precisa lembrar.
+
+---
+
+## ED-093 — PostgreSQL do compose publica na 5433
+
+**Como apareceu.** `alembic upgrade head` contra `localhost:5432` falhou com
+`asyncpg.exceptions.ConnectionDoesNotExistError: connection was closed in the middle of
+operation` -- enquanto `pg_isready` dentro do container dizia "accepting connections".
+
+**Causa.** `netstat` mostrou **dois** processos escutando na 5432: o proxy do Docker e um
+`postgres.exe` instalado como servico do Windows. O Windows permite que ambos abram a
+porta sem erro, e entregou a conexao ao servico local -- que nao conhece o banco `aiops`.
+
+**O sintoma nao acusa a causa.** "Connection closed in the middle of operation" leva a
+procurar defeito na rede, no driver ou no container. A ferramenta que resolveu foi
+`netstat`, e nao os logs de nenhum dos dois lados.
+
+**Decisao.** O compose publica em `5433:5432`. A porta so serve a ferramenta do host
+(`psql`, `alembic`, cliente grafico); a aplicacao fala com `postgres:5432` pela rede
+interna do compose, onde nao ha disputa.
+
+**Licao geral.** Porta padrao publicada no host e conflito esperando acontecer em qualquer
+maquina de desenvolvimento -- e o modo de falha e silencioso.

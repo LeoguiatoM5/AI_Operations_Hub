@@ -19,9 +19,15 @@
 # uma dependencia que hoje tem uma CVE critica sem correcao (ver docs/security.md). O
 # Protocol `VectorStore` mantem a porta aberta para quando houver mais de uma instancia.
 #
-# **Por que nao ha `postgres`.** Trocar SQLite por PostgreSQL exige Alembic (ED-020), que
-# e trabalho proprio e nao acessorio. Registrado como pendencia no roadmap em vez de
-# entregue pela metade.
+# **PostgreSQL fica no perfil `postgres`**, e nao no padrao:
+#
+#   docker compose up -d --wait                        SQLite (padrao)
+#   docker compose --profile postgres up -d --wait     PostgreSQL
+#
+# O padrao continua sendo SQLite porque um clone recem-baixado deve subir sem esperar um
+# banco inicializar. O perfil existe para exercitar o caminho que a producao usaria -- e
+# para provar que a promessa "trocar de banco e mudar a URL" e verdade, e nao folclore do
+# README.
 
 services:
   api:
@@ -42,7 +48,10 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       VECTOR_STORE: chroma
       CHROMA_PATH: /app/data/chroma
-      DATABASE_URL: sqlite+aiosqlite:////app/data/app.db
+      # Com o perfil `postgres`, aponte para o servico pelo nome:
+      #   DATABASE_URL=postgresql+asyncpg://aiops:aiops@postgres:5432/aiops
+      # E a promessa do ED-016 sendo cobrada: trocar de banco e trocar esta linha.
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////app/data/app.db}
       CHECKPOINT_PATH: /app/data/checkpoints.db
       NOTIFIER: ${NOTIFIER:-memory}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
@@ -115,7 +124,44 @@ services:
       retries: 10
       start_period: 30s
 
+  postgres:
+    image: postgres:17-alpine
+    container_name: aiops-postgres
+    restart: unless-stopped
+    # So sobe com `--profile postgres`. Sem isso, um clone recem-baixado esperaria um
+    # banco inicializar para rodar algo que o SQLite atende em segundos.
+    profiles: ["postgres"]
+    ports:
+      # 5433 no host, e nao 5432. Um PostgreSQL instalado na maquina ja escuta na 5432, e
+      # o Windows permite que os dois abram a mesma porta -- sem erro. A conexao cai no
+      # servico local, que nao conhece o banco `aiops`, e o sintoma e
+      # `ConnectionDoesNotExistError: connection was closed in the middle of operation`,
+      # que nao acusa a causa.
+      #
+      # A porta so existe para ferramenta do host (psql, cliente grafico, `alembic`). A
+      # aplicacao no compose fala com `postgres:5432` pela rede interna, onde nao ha
+      # disputa.
+      - "5433:5432"
+    environment:
+      # Credencial de desenvolvimento local, deliberadamente trivial e deliberadamente
+      # visivel: um segredo de verdade aqui daria a falsa impressao de que este compose
+      # serve para producao. La, isto vira `secrets` do orquestrador.
+      POSTGRES_USER: aiops
+      POSTGRES_PASSWORD: aiops
+      POSTGRES_DB: aiops
+    volumes:
+      - aiops-postgres:/var/lib/postgresql/data
+    healthcheck:
+      # `pg_isready` responde antes de o banco aceitar conexao de verdade em alguns casos;
+      # o `-d` faz a checagem contra o banco que a aplicacao vai usar.
+      test: ["CMD-SHELL", "pg_isready -U aiops -d aiops"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   # Dados da API (banco, checkpoints, indice do Chroma). Gerenciado pelo Docker, dentro do
   # sistema de arquivos da VM -- que e onde o SQLite funciona.
   aiops-data:
+  aiops-postgres:

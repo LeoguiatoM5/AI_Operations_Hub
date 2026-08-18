@@ -60,11 +60,34 @@ def create_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSessi
 
 
 async def create_schema(engine: AsyncEngine) -> None:
-    """Cria as tabelas ausentes.
+    """Cria as tabelas ausentes, direto do modelo.
 
-    Suficiente enquanto o banco e um SQLite descartavel. Alembic entra junto com o
-    PostgreSQL (V7), que e quando migracao versionada passa a importar de verdade.
+    **Nao substitui as migracoes -- convive com elas, e a fronteira e clara.**
+
+    `create_all` serve a banco descartavel: o SQLite em memoria da suite, o indice
+    temporario do `run_evals.py`, um clone recem-baixado que sobe em cinco segundos. E
+    rapido, nao precisa de historico e nao tem o que preservar.
+
+    Migracao serve a banco que guarda dados de alguem. Ela sabe **alterar** uma tabela
+    existente sem perder o conteudo, que e exatamente o que `create_all` nao faz: ele cria
+    o que falta e ignora o que mudou. Uma coluna renomeada no modelo simplesmente nao
+    aparece, e o desvio so vira erro na primeira consulta.
+
+    O risco de ter dois caminhos e divergirem. `tests/integration/test_migrations.py` roda
+    `alembic check` e falha se um modelo mudou sem a migracao correspondente.
+
+    Em PostgreSQL, este metodo **nao cria nada**: la o esquema vem de `alembic upgrade
+    head`, e criar tabela por baixo das migracoes deixaria o banco num estado que o
+    Alembic nao reconhece.
     """
+    if engine.dialect.name != "sqlite":
+        logger.info(
+            "database_schema_skipped",
+            dialect=engine.dialect.name,
+            reason="esquema gerenciado por migracao: rode `alembic upgrade head`",
+        )
+        return
+
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
     logger.info("database_schema_ready", tables=sorted(Base.metadata.tables))

@@ -45,6 +45,10 @@ COPY app ./app
 COPY mcp_server ./mcp_server
 COPY evals ./evals
 COPY run_evals.py ./
+# As migracoes viajam na imagem: `alembic upgrade head` roda no deploy, contra o banco de
+# la, e nao na maquina de quem desenvolve.
+COPY migrations ./migrations
+COPY alembic.ini ./
 
 # `data/` e a UNICA coisa que a aplicacao escreve, e por isso a unica que lhe pertence.
 # No compose ela e volume; criada aqui para o caso de a imagem rodar sem volume montado.
