@@ -1820,3 +1820,38 @@ referencia externa. As duas falhas do detector ate agora foram as duas em `consi
 **Consequencia para os pesos.** A medicao sugere que `grounding` merece o peso alto que
 tem, e que `consistency` e a dimensao menos confiavel do motor -- mas com dois casos nao
 se ajusta peso. Fica registrado como a proxima coisa a medir, e nao como ajuste feito.
+
+---
+
+## ED-100 — Referencia de action so e verificada quando a CI roda
+
+**Como apareceu.** A primeira execucao do workflow morreu antes de qualquer passo util:
+
+    Error: Unable to resolve action `aquasecurity/trivy-action@0.28.0`,
+    unable to find version
+
+**Causa.** Escrevi o workflow e nunca o executei. Uma tag de action nao existe no
+repositorio local, nao aparece em lint, nao aparece em teste -- **o GitHub e o unico lugar
+que sabe se ela existe**, e ele so olha quando o job roda.
+
+**Decisao.** O passo passou a rodar o **conteiner oficial** do Trivy em vez da action:
+
+    docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+      aquasec/trivy:latest image --severity CRITICAL,HIGH ... aiops-api:ci
+
+**O ganho nao e cosmetico.** Uma action so e verificavel no GitHub; um conteiner e
+verificavel na maquina, antes de commitar -- e foi assim que o passo novo foi validado.
+A classe inteira de erro desaparece.
+
+**Por que `latest` aqui, contra a regra geral de fixar versao.** Um scanner com base de
+vulnerabilidades velha e pior que scanner nenhum: ele passa e da sensacao de cobertura. O
+que se quer da ferramenta e justamente a novidade.
+
+**Licao.** Trate o arquivo de CI como codigo nao testado ate a primeira execucao verde.
+Onde der para trocar uma dependencia de plataforma por algo executavel localmente, troque:
+a diferenca aparece na estreia, na frente de quem for olhar.
+
+**Nota lateral, do ambiente.** Rodando o comando no Git Bash do Windows, o
+`/var/run/docker.sock` virou `C:\Program Files\Git\var\run\docker.sock` -- conversao
+automatica de caminho do MSYS. Resolvido com `MSYS_NO_PATHCONV=1`. Nao afeta a CI, que
+roda em Ubuntu, mas confunde quem tentar reproduzir a validacao no Windows.

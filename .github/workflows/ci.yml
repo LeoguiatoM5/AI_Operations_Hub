@@ -152,13 +152,26 @@ jobs:
           docker logs aiops-ci
           exit 1
 
+      # O contêiner oficial do Trivy, e nao a action `aquasecurity/trivy-action`.
+      #
+      # A action foi a primeira escolha e quebrou o build na estreia: `unable to resolve
+      # action ... unable to find version`. Uma referencia de action so e verificada
+      # quando a CI roda, e eu havia escrito o workflow sem executa-lo.
+      #
+      # O contêiner elimina essa classe de erro: e a mesma imagem que da para rodar na
+      # maquina antes de commitar. `latest` e deliberado aqui -- um scanner com base de
+      # vulnerabilidades velha e pior que scanner nenhum, porque da sensacao de cobertura.
       - name: Vulnerabilidades da imagem
-        uses: aquasecurity/trivy-action@0.28.0
-        with:
-          image-ref: aiops-api:ci
-          format: table
-          severity: CRITICAL,HIGH
-          # Nao quebra o build: as CVEs criticas conhecidas hoje nao tem correcao
-          # publicada (ver docs/security.md), e um passo que falha sempre e um passo que
-          # todo mundo aprende a ignorar. O relatorio fica no log para revisao.
-          exit-code: "0"
+        run: |
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            aquasec/trivy:latest image \
+              --severity CRITICAL,HIGH \
+              --scanners vuln \
+              --format table \
+              --exit-code 0 \
+              aiops-api:ci
+        # Nao quebra o build: as CVEs criticas conhecidas hoje nao tem correcao publicada
+        # (ver docs/security.md), e um passo que falha sempre e um passo que todo mundo
+        # aprende a ignorar. O relatorio fica no log para revisao.
